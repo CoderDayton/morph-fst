@@ -1,0 +1,270 @@
+! =====================================================================
+!  french.morph — French demo lexicon for morph-fst
+! ---------------------------------------------------------------------
+!  * Stem alternations conditioned on the next morpheme (sequential rules):
+!    commenc+ons → commençons, mang+ons → mangeons, achet+e → achète,
+!    appel+le → appelle, cheval+x → chevaux, heureux+e → heureuse.
+!  * Elision: clitics l' d' j' n' qu' ... may only precede a vowel or h
+!    (`@next=VH`); apostrophes stay inside words.
+! =====================================================================
+
+OPTION max_morph_chars 48
+OPTION apostrophe_in_words true
+
+CLASS V  = a e i o u y à â é è ê ë î ï ô ù û ü
+CLASS C  = b c ç d f g h j k l m n p q r s t v w x z
+CLASS VH = a e i o u y à â é è ê ë î ï ô ù û ü h
+CLASS AO = a o â ô
+
+LEXICON Root
+  0 Clitics ;
+  0 Words ;
+
+LEXICON Words
+  0 Nouns ;
+  0 Adjs ;
+  0 Verbs ;
+  0 Closed ;
+
+LEXICON Clitics
+  l':le      DET    Nouns  @next=VH ;
+  l':le      PRON   Verbs  @next=VH ;
+  d':de      PREP   Nouns  @next=VH ;
+  j':je      PRON   Verbs  @next=VH ;
+  n':ne      NEG    Verbs  @next=VH ;
+  m':me      PRON   Verbs  @next=VH ;
+  t':te      PRON   Verbs  @next=VH ;
+  s':se      PRON   Verbs  @next=VH ;
+  qu':que    CONJ   Words  @next=VH ;
+
+LEXICON Closed
+  le     DET   # ;
+  la     DET   # ;
+  les    DET   # ;
+  un     DET   # ;
+  une    DET   # ;
+  des    DET   # ;
+  de     PREP  # ;
+  du     DET   # ;
+  et     CONJ  # ;
+  ou     CONJ  # ;
+  mais   CONJ  # ;
+  je     PRON  # ;
+  tu     PRON  # ;
+  il     PRON  # ;
+  elle   PRON  # ;
+  on     PRON  # ;
+  nous   PRON  # ;
+  vous   PRON  # ;
+  ils    PRON  # ;
+  elles  PRON  # ;
+  ne     NEG   # ;
+  pas    NEG   # ;
+  que    CONJ  # ;
+  qui    PRON  # ;
+  très   ADV   # ;
+  à      PREP  # ;
+  dans   PREP  # ;
+  pour   PREP  # ;
+  avec   PREP  # ;
+  sur    PREP  # ;
+  est:être   V+PRS.3SG  # ;
+  sont:être  V+PRS.3PL  # ;
+  ont:avoir  V+PRS.3PL  # ;
+
+! ---------------------------------------------------------------------
+LEXICON Nouns @open=N
+  homme       N  NounS ;
+  femme       N  NounS ;
+  enfant      N  NounS ;
+  ami         N  NounS ;
+  amie        N  NounS ;
+  livre       N  NounS ;
+  maison      N  NounS ;
+  voiture     N  NounS ;
+  ville       N  NounS ;
+  arbre       N  NounS ;
+  école       N  NounS ;
+  étudiant    N  NounS ;
+  hôtel       N  NounS ;
+  heure       N  NounS ;
+  histoire    N  NounS ;
+  ordinateur  N  NounS ;
+  idée        N  NounS ;
+  année       N  NounS ;
+  jour        N  NounS ;
+  cheval      N  NounX @aux ;
+  journal     N  NounX @aux ;
+  animal      N  NounX @aux ;
+  hôpital     N  NounX @aux ;
+  bateau      N  NounX ;
+  gâteau      N  NounX ;
+  château     N  NounX ;
+  oiseau      N  NounX ;
+  jeu         N  NounX ;
+  cheveu      N  NounX ;
+  feu         N  NounX ;
+  bras        N  NounInv ;
+  prix        N  NounInv ;
+  nez         N  NounInv ;
+  pays        N  NounInv ;
+
+LEXICON NounS
+  s      PL     # ;
+  0 # ;
+
+LEXICON NounX
+  x      PL     # ;
+  0 # ;
+
+LEXICON NounInv
+  0 # ;
+
+! ---------------------------------------------------------------------
+LEXICON Adjs @open=ADJ
+  lent        ADJ  AdjReg ;
+  grand       ADJ  AdjReg ;
+  petit       ADJ  AdjReg ;
+  fort        ADJ  AdjReg ;
+  vert        ADJ  AdjReg ;
+  vrai        ADJ  AdjReg ;
+  seul        ADJ  AdjReg ;
+  content     ADJ  AdjReg ;
+  actif       ADJ  AdjReg ;
+  sportif     ADJ  AdjReg ;
+  premier     ADJ  AdjReg @er ;
+  dernier     ADJ  AdjReg @er ;
+  cher        ADJ  AdjReg @er ;
+  léger       ADJ  AdjReg @er ;
+  bon         ADJ  AdjReg @nn ;
+  ancien      ADJ  AdjReg @nn ;
+  gentil      ADJ  AdjReg @ll ;
+  naturel     ADJ  AdjReg @ll ;
+  cruel       ADJ  AdjReg @ll ;
+  heureux     ADJ  AdjX ;
+  sérieux     ADJ  AdjX ;
+  joyeux      ADJ  AdjX ;
+  dangereux   ADJ  AdjX ;
+  rapide      ADJ  AdjE ;
+  facile      ADJ  AdjE ;
+  simple      ADJ  AdjE ;
+  calme       ADJ  AdjE ;
+  rouge       ADJ  AdjE ;
+  jaune       ADJ  AdjE ;
+
+LEXICON AdjReg
+  s      PL     # ;
+  e      FEM    AdjFem ;
+  0 # ;
+
+LEXICON AdjX
+  e      FEM    AdjFem ;
+  0 # ;
+
+LEXICON AdjFem
+  s      PL     # ;
+  ment   ADV    # ;
+  0 # ;
+
+LEXICON AdjE
+  s      PL     # ;
+  ment   ADV    # ;
+  0 # ;
+
+! ---------------------------------------------------------------------
+LEXICON Verbs @open=V
+  parl:parler          V  VerbEr ;
+  aim:aimer            V  VerbEr ;
+  chant:chanter        V  VerbEr ;
+  donn:donner          V  VerbEr ;
+  regard:regarder      V  VerbEr ;
+  travaill:travailler  V  VerbEr ;
+  jou:jouer            V  VerbEr ;
+  habit:habiter        V  VerbEr ;
+  écout:écouter        V  VerbEr ;
+  trouv:trouver        V  VerbEr ;
+  pens:penser          V  VerbEr ;
+  arriv:arriver        V  VerbEr ;
+  mang:manger          V  VerbEr ;
+  nag:nager            V  VerbEr ;
+  voyag:voyager        V  VerbEr ;
+  partag:partager      V  VerbEr ;
+  commenc:commencer    V  VerbEr ;
+  lanc:lancer          V  VerbEr ;
+  avanc:avancer        V  VerbEr ;
+  achet:acheter        V  VerbEr @grave ;
+  lev:lever            V  VerbEr @grave ;
+  men:mener            V  VerbEr @grave ;
+  promen:promener      V  VerbEr @grave ;
+  préfér:préférer      V  VerbEr @acute ;
+  espér:espérer        V  VerbEr @acute ;
+  répét:répéter        V  VerbEr @acute ;
+  appel:appeler        V  VerbEr @dbl ;
+  rappel:rappeler      V  VerbEr @dbl ;
+  jet:jeter            V  VerbEr @dbl ;
+  fin:finir            V  VerbIr ;
+  chois:choisir        V  VerbIr ;
+  réuss:réussir        V  VerbIr ;
+  grand:grandir        V  VerbIr ;
+  rempl:remplir        V  VerbIr ;
+
+LEXICON VerbEr
+  er     INF         # ;
+  é      PTCP        Ptcp ;
+  ant    PRS.PTCP    # ;
+  e      PRS.1/3SG   # ;
+  es     PRS.2SG     # ;
+  ons    PRS.1PL     # ;
+  ez     PRS.2PL     # ;
+  ent    PRS.3PL     # ;
+  ais    IPFV.1/2SG  # ;
+  ait    IPFV.3SG    # ;
+  ions   IPFV.1PL    # ;
+  iez    IPFV.2PL    # ;
+  aient  IPFV.3PL    # ;
+  erai   FUT.1SG     # ;
+  eras   FUT.2SG     # ;
+  era    FUT.3SG     # ;
+  erons  FUT.1PL     # ;
+  erez   FUT.2PL     # ;
+  eront  FUT.3PL     # ;
+
+LEXICON VerbIr
+  ir      INF        # ;
+  i       PTCP       Ptcp ;
+  is      PRS.1/2SG  # ;
+  it      PRS.3SG    # ;
+  issons  PRS.1PL    # ;
+  issez   PRS.2PL    # ;
+  issent  PRS.3PL    # ;
+  issait  IPFV.3SG   # ;
+  irai    FUT.1SG    # ;
+  iras    FUT.2SG    # ;
+  ira     FUT.3SG    # ;
+  irons   FUT.1PL    # ;
+  irez    FUT.2PL    # ;
+  iront   FUT.3PL    # ;
+
+LEXICON Ptcp
+  e      FEM    NounS ;
+  s      PL     # ;
+  0 # ;
+
+! ---------------------------------------------------------------------
+RULES
+  c_cedil:  c -> ç   / _ +[AO] ;
+  g_ge:     g -> ge  / _ +[AO] ;
+  grave:    e -> è   / _ [C] +{e,es,ent,erai,eras,era,erons,erez,eront} @grave ;
+  acute:    é -> è   / _ [C]+ +{e,es,ent} @acute ;
+  dbl_l:    l -> ll  / e _ +{e,es,ent,erai,eras,era,erons,erez,eront} @dbl ;
+  dbl_t:    t -> tt  / e _ +{e,es,ent,erai,eras,era,erons,erez,eront} @dbl ;
+  al_au:    al -> au / _ +{x} @aux ;
+  fem_x:    x -> s   / _ +{e} ;
+  fem_f:    f -> v   / _ +{e} ;
+  fem_er:   er -> èr / _ +{e} @er ;
+  fem_nn:   n -> nn  / [V] _ +{e} @nn ;
+  fem_ll:   l -> ll  / [V] _ +{e} @ll ;
+
+PIECES
+  . , : ? " ( ) - / « »
+  0 1 2 3 4 5 6 7 8 9 ##0 ##1 ##2 ##3 ##4 ##5 ##6 ##7 ##8 ##9

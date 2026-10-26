@@ -1,0 +1,89 @@
+[package]
+name = "morph-fst"
+version = "0.1.0"
+edition = "2021"
+rust-version = "1.82"
+description = "Rule-based morphological analyzer (finite-state, lexc/twolc-like spec language) fused with a deterministic WordPiece fallback for unknown words. Handles bidirectional and opaque vowel harmony and learns lexical exceptions from raw text"
+license = "MIT OR Apache-2.0"
+readme = "README.md"
+documentation = "https://docs.rs/morph-fst"
+# repository = "https://github.com/<you>/morph-fst"   # add before publishing
+keywords = ["morphology", "tokenizer", "fst", "nlp", "wordpiece"]
+categories = ["text-processing", "parsing", "science"]
+include = [
+    "/src/**/*.rs",
+    "/data/*.morph",
+    "/data/*.txt",
+    "/examples/quickstart.rs",
+    "/examples/learn_exceptions.rs",
+    "/tests/**/*.rs",
+    "/README.md",
+    "/CHANGELOG.md",
+    "/LICENSE-MIT",
+    "/LICENSE-APACHE",
+]
+
+[features]
+default = []
+# The `morph-fst` command-line tool.
+cli = []
+
+[[bin]]
+name = "morph-fst"
+required-features = ["cli"]
+
+[[example]]
+name = "quickstart"
+
+[[example]]
+name = "learn_exceptions"
+
+# Development harnesses (fingerprints, instruction counts); not published.
+[[example]]
+name = "regress"
+
+[[example]]
+name = "instr"
+
+[[example]]
+name = "outdump"
+
+[[example]]
+name = "corpus"
+
+[[example]]
+name = "probe"
+
+[[test]]
+name = "api"
+
+[[test]]
+name = "linmax_prop"
+
+[[test]]
+name = "exceptions"
+
+[[test]]
+name = "golden"
+
+[[test]]
+name = "languages"
+
+[[test]]
+name = "right_harmony"
+
+[[test]]
+name = "robustness"
+
+[[test]]
+name = "rules_prop"
+
+[package.metadata.docs.rs]
+all-features = true
+
+[profile.release]
+codegen-units = 1
+lto = "thin"
+
+[profile.test]
+opt-level = 2

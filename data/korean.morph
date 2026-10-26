@@ -1,0 +1,233 @@
+! =====================================================================
+!  korean.morph — Korean demo lexicon for morph-fst
+! ---------------------------------------------------------------------
+!  OPTION hangul_jamo: syllables (spec and input) are decomposed into
+!  conjoining jamo, so a morpheme may end inside a syllable (가+ᆻ = 갔).
+!  Context register over the jamo text:
+!     bat : what the text ends in — V vowel, C final consonant,
+!           L final ㄹ, O a bare initial (after ㅡ-deletion)
+!     vow : last vowel — A (ㅏ: bright, contracts), O (ㅗ ㅑ: bright),
+!           E (ㅓ ㅕ ㅐ ㅔ ㅘ ㅝ ...: contract), X (other: dark)
+!  Particles and endings choose their form from it: 이/가, 을/를, 은/는,
+!  과/와, (으)로, 이에요/예요, and the 아/어 ending {EO}.
+! =====================================================================
+
+OPTION max_morph_chars 96
+OPTION hangul_jamo true
+
+CLASS VOW  = ᅡ ᅢ ᅣ ᅤ ᅥ ᅦ ᅧ ᅨ ᅩ ᅪ ᅫ ᅬ ᅭ ᅮ ᅯ ᅰ ᅱ ᅲ ᅳ ᅴ ᅵ
+CLASS LEAD = ᄀ ᄁ ᄂ ᄃ ᄄ ᄅ ᄆ ᄇ ᄈ ᄉ ᄊ ᄋ ᄌ ᄍ ᄎ ᄏ ᄐ ᄑ ᄒ
+CLASS FIN  = ᆨ ᆩ ᆪ ᆫ ᆬ ᆭ ᆮ ᆰ ᆱ ᆲ ᆳ ᆴ ᆵ ᆶ ᆷ ᆸ ᆹ ᆺ ᆻ ᆼ ᆽ ᆾ ᆿ ᇀ ᇁ ᇂ
+CLASS VOWELISH = {EO} {EU}
+CLASS EO = {EO}
+
+FEATURE bat
+  ᆯ -> L
+  [FIN] -> C
+  [VOW] -> V
+  [LEAD] -> O
+
+FEATURE vow
+  ᅡ -> A
+  ᅩ ᅣ -> O
+  ᅥ ᅧ ᅢ ᅦ ᅪ ᅯ ᅫ ᅤ ᅨ ᅰ -> E
+  ᅬ ᅮ ᅱ ᅲ ᅭ ᅴ ᅵ ᅳ -> X
+
+! 아/어 ending: absorbed after a contracting vowel; bare vowel after a
+! bare initial (아프 → 아ㅍ+ㅏ = 아파); else 아 (bright) / 어 (dark)
+ARCHI EO
+  bat=V vow=A|E -> 0
+  bat=O vow=A|O -> ᅡ
+  bat=O -> ᅥ
+  vow=A|O -> 아
+  * -> 어
+
+ARCHI EU
+  bat=C -> 으
+  * -> 0
+
+ARCHI EURO
+  bat=C -> 으
+  * -> 0
+
+ARCHI SEUP
+  bat=C -> 습
+  * -> ᆸ
+
+ARCHI SUBJ
+  bat=C|L -> 이
+  * -> 가
+
+ARCHI OBJ
+  bat=C|L -> 을
+  * -> 를
+
+ARCHI TOP
+  bat=C|L -> 은
+  * -> 는
+
+ARCHI AND
+  bat=C|L -> 과
+  * -> 와
+
+ARCHI COP
+  bat=C|L -> 이에
+  * -> 예
+
+LEXICON Root
+  0 Nouns ;
+  0 Verbs ;
+  0 Closed ;
+
+LEXICON Closed
+  나       PRON   Particles ;
+  저       PRON   Particles ;
+  너       PRON   Particles ;
+  그리고   CONJ   # ;
+  하지만   CONJ   # ;
+  아주     ADV    # ;
+  안       NEG    # ;
+
+! ---------------------------------------------------------------------
+LEXICON Nouns @open=N
+  학생     N  NounCont ;
+  친구     N  NounCont ;
+  사람     N  NounCont ;
+  물       N  NounCont ;
+  서울     N  NounCont ;
+  집       N  NounCont ;
+  학교     N  NounCont ;
+  책       N  NounCont ;
+  사과     N  NounCont ;
+  빵       N  NounCont ;
+  선생님   N  NounCont ;
+  회사     N  NounCont ;
+  가방     N  NounCont ;
+  커피     N  NounCont ;
+  밥       N  NounCont ;
+  이름     N  NounCont ;
+  나라     N  NounCont ;
+  시간     N  NounCont ;
+  돈       N  NounCont ;
+  영화     N  NounCont ;
+  음악     N  NounCont ;
+  한국     N  NounCont ;
+  공부     N  NounCont ;
+  일       N  NounCont ;
+
+LEXICON NounCont
+  0 Particles ;
+  들       PL     Particles ;
+
+LEXICON Particles
+  {SUBJ}       SUBJ      # ;
+  {OBJ}        OBJ       # ;
+  {TOP}        TOP       # ;
+  {AND}        AND       # ;
+  {EURO}로     DIR       Aux ;
+  에             LOC       Aux ;
+  에서           LOC.SRC   Aux ;
+  의             GEN       # ;
+  도             ALSO      # ;
+  만             ONLY      Aux ;
+  까지           UNTIL     Aux ;
+  부터           FROM      Aux ;
+  한테           DAT       Aux ;
+  {COP}요      COP.POL   # ;
+  0 # ;
+
+LEXICON Aux
+  {TOP}        TOP       # ;
+  도             ALSO      # ;
+  0 # ;
+
+! ---------------------------------------------------------------------
+!  Verbs and adjectives (stems). Flags: @ha 하→해, @wa 오→와 (obligatory),
+!  @wa_opt 보→봐 (optional), @b ㅂ-irregular, @d ㄷ-irregular (its ㄹ
+!  still takes 으: pinned bat=C), @reu 르-irregular.
+! ---------------------------------------------------------------------
+LEXICON Verbs @open=V
+  가       V   VStem ;
+  사       V   VStem ;
+  서       V   VStem ;
+  켜       V   VStem ;
+  자       V   VStem ;
+  만나     V   VStem ;
+  주       V   VStem ;
+  배우     V   VStem ;
+  마시     V   VStem ;
+  기다리   V   VStem ;
+  다니     V   VStem ;
+  되       V   VStem ;
+  먹       V   VStem ;
+  읽       V   VStem ;
+  앉       V   VStem ;
+  찾       V   VStem ;
+  받       V   VStem ;
+  닫       V   VStem ;
+  입       V   VStem ;
+  좋       V   VStem ;
+  많       V   VStem ;
+  웃       V   VStem ;
+  씻       V   VStem ;
+  살       V   VStem ;
+  알       V   VStem ;
+  만들     V   VStem ;
+  놀       V   VStem ;
+  열       V   VStem ;
+  쓰       V   VStem ;
+  크       V   VStem ;
+  아프     V   VStem ;
+  바쁘     V   VStem ;
+  기쁘     V   VStem ;
+  오       V   VStem @wa ;
+  보       V   VStem @wa_opt ;
+  하       V   VStem @ha ;
+  공부하   V   VStem @ha ;
+  일하     V   VStem @ha ;
+  사랑하   V   VStem @ha ;
+  좋아하   V   VStem @ha ;
+  춥       V   VStem @b ;
+  덥       V   VStem @b ;
+  쉽       V   VStem @b ;
+  어렵     V   VStem @b ;
+  모르     V   VStem @reu ;
+  부르     V   VStem @reu ;
+  듣       V   VStem @d @set:bat=C ;
+  걷       V   VStem @d @set:bat=C ;
+
+LEXICON VStem
+  다             DECL      # ;
+  {EO}요       POL       # ;
+  {EO}ᆻ       PST       PastEnd ;
+  {EU}면       COND      # ;
+  {EU}세요     HON.POL   # ;
+  {SEUP}니다   FORMAL    # ;
+  고             CONJ      # ;
+  지만           CONCESS   # ;
+
+LEXICON PastEnd
+  어요           POL       # ;
+  다             DECL      # ;
+  습니다         FORMAL    # ;
+
+! ---------------------------------------------------------------------
+!  Stem rules before vowel-initial endings (sequential; order matters:
+!  ㄹ-deletion before ㄷ→ㄹ, ㅂ→우 feeds 우→워, 르 before ㅡ-deletion)
+RULES
+  l_del:    ᆯ -> 0     / _ +{{EU}세요,{SEUP}니다} ;
+  b_irr:    ᆸ -> 우    / _ +[VOWELISH] @b ;
+  wo_b:     ᅮ -> ᅯ      / _ +[EO] @b ;
+  d_irr:    ᆮ -> ᆯ     / _ +[VOWELISH] @d ;
+  reu:      르 -> ᆯᄅ   / _ +[EO] @reu ;
+  eu_del:   ᅳ -> 0        / _ +[EO] ;
+  ha:       ᅡ -> ᅢ      / ᄒ _ +[EO] @ha ;
+  wa:       ᅩ -> ᅪ      / _ +[EO] @wa ;
+  wa_opt?:  ᅩ -> ᅪ      / _ +[EO] @wa_opt ;
+  wo?:      ᅮ -> ᅯ      / _ +[EO] ;
+  yeo?:     ᅵ -> ᅧ     / _ +[EO] ;
+  wae?:     ᅬ -> ᅫ    / _ +[EO] ;
+
+PIECES
+  . , : ? " ( ) - /
+  0 1 2 3 4 5 6 7 8 9 ##0 ##1 ##2 ##3 ##4 ##5 ##6 ##7 ##8 ##9

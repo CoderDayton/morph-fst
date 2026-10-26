@@ -1,0 +1,434 @@
+! =====================================================================
+!  english.morph — hand-written English demo lexicon for morph-fst
+! ---------------------------------------------------------------------
+!  LEXICON Name [@open=TAG]        @open: hybrid mode may posit an
+!                                  unknown stem of this class (?TAG)
+!    surface[:lemma] TAG Cont [@flag ...] ;
+!    0 Cont ;                      epsilon continuation
+!    #                             end of word
+!  RULES   name: TARGET -> REPL / [C|V|^] _ +{next,...} [@flag] ;
+!          TARGET `.` = any last char; REPL `0` = delete, `$` = target
+!  PIECES  extra WordPiece units (##x = word-internal)
+!  Comments start with `!`.
+! =====================================================================
+
+OPTION max_morph_chars 48
+
+LEXICON Root
+  0 Prefixes ;
+  0 Stems ;
+  0 Closed ;
+
+LEXICON Stems
+  0 NounStems ;
+  0 VerbStems ;
+  0 AdjStems ;
+
+! ---------------------------------------------------------------------
+!  Closed class + irregular full forms
+! ---------------------------------------------------------------------
+LEXICON Closed
+  the            DET          # ;
+  a              DET          # ;
+  an             DET          # ;
+  this           DET          # ;
+  that           DET          # ;
+  and            CONJ         # ;
+  or             CONJ         # ;
+  but            CONJ         # ;
+  of             PREP         # ;
+  to             PREP         # ;
+  in             PREP         # ;
+  on             PREP         # ;
+  at             PREP         # ;
+  with           PREP         # ;
+  for            PREP         # ;
+  from           PREP         # ;
+  by             PREP         # ;
+  it             PRON         # ;
+  he             PRON         # ;
+  she            PRON         # ;
+  they           PRON         # ;
+  we             PRON         # ;
+  you            PRON         # ;
+  i              PRON         # ;
+  not            NEG          # ;
+  is:be          V+PRES.3SG   # ;
+  are:be         V+PRES       # ;
+  was:be         V+PAST.SG    # ;
+  were:be        V+PAST.PL    # ;
+  been:be        V+PTCP       # ;
+  has:have       V+PRES.3SG   # ;
+  had:have       V+PAST       # ;
+  ran:run        V+PAST       # ;
+  made:make      V+PAST       # ;
+  began:begin    V+PAST       # ;
+  begun:begin    V+PTCP       # ;
+  taught:teach   V+PAST       # ;
+  wrote:write    V+PAST       # ;
+  written:write  V+PTCP       # ;
+  built:build    V+PAST       # ;
+  led:lead       V+PAST       # ;
+  slept:sleep    V+PAST       # ;
+  children:child N+PL         # ;
+  men:man        N+PL         # ;
+  women:woman    N+PL         # ;
+  better:good    ADJ+CMP      # ;
+  best:good      ADJ+SUP      # ;
+
+! ---------------------------------------------------------------------
+!  Derivational prefixes
+! ---------------------------------------------------------------------
+LEXICON Prefixes
+  un     PFX:NEG      AdjStems ;
+  un     PFX:REV      VerbStems ;
+  in     PFX:NEG      AdjStems ;
+  non    PFX:NEG      AdjStems ;
+  re     PFX:AGAIN    VerbStems ;
+  dis    PFX:NEG      VerbStems ;
+  mis    PFX:WRONG    VerbStems ;
+  pre    PFX:BEFORE   VerbStems ;
+  over   PFX:EXCESS   VerbStems ;
+  under  PFX:INSUFF   VerbStems ;
+  out    PFX:SURPASS  VerbStems ;
+  co     PFX:JOINT    VerbStems ;
+  anti   PFX:AGAINST  NounStems ;
+  super  PFX:ABOVE    NounStems ;
+  sub    PFX:BELOW    NounStems ;
+
+! ---------------------------------------------------------------------
+!  Nouns
+! ---------------------------------------------------------------------
+LEXICON NounStems @open=N
+  cat        N  NounCont ;
+  dog        N  NounCont ;
+  book       N  NounCont ;
+  house      N  NounCont ;
+  home       N  NounCont ;
+  car        N  NounCont ;
+  friend     N  NounCont ;
+  king       N  NounCont ;
+  boy        N  NounCont ;
+  girl       N  NounCont ;
+  neighbor   N  NounCont ;
+  member     N  NounCont ;
+  city       N  NounCont ;
+  baby       N  NounCont ;
+  party      N  NounCont ;
+  story      N  NounCont ;
+  family     N  NounCont ;
+  beauty     N  NounCont ;
+  pity       N  NounCont ;
+  mercy      N  NounCont ;
+  industry   N  NounCont ;
+  box        N  NounCont ;
+  fox        N  NounCont ;
+  church     N  NounCont ;
+  bench      N  NounCont ;
+  dish       N  NounCont ;
+  class      N  NounCont ;
+  glass      N  NounCont ;
+  care       N  NounCont ;
+  hope       N  NounCont ;
+  use        N  NounCont ;
+  power      N  NounCont ;
+  help       N  NounCont ;
+  luck       N  NounCont ;
+  sleep      N  NounCont ;
+  rain       N  NounCont ;
+  cloud      N  NounCont ;
+  salt       N  NounCont ;
+  dirt       N  NounCont ;
+  health     N  NounCont ;
+  wind       N  NounCont ;
+  noise      N  NounCont ;
+  stone      N  NounCont ;
+  smoke      N  NounCont ;
+  ice        N  NounCont ;
+  water      N  NounCont ;
+  rock       N  NounCont ;
+  word       N  NounCont ;
+  room       N  NounCont ;
+  color      N  NounCont ;
+  fear       N  NounCont ;
+  pain       N  NounCont ;
+  peace      N  NounCont ;
+  dream      N  NounCont ;
+  wish       N  NounCont ;
+  walk       N  NounCont ;
+  work       N  NounCont ;
+  play       N  NounCont ;
+  nation     N  NounCont ;
+  music      N  NounCont ;
+  magic      N  NounCont ;
+  person     N  NounCont ;
+  tradition  N  NounCont ;
+  emotion    N  NounCont ;
+  nature     N  NounCont ;
+  culture    N  NounCont ;
+  sun        N  NounCont @double ;
+  fun        N  NounCont @double ;
+  mud        N  NounCont @double ;
+  fog        N  NounCont @double ;
+  child      N  NounNoPl ;
+  man        N  NounNoPl ;
+  woman      N  NounNoPl ;
+
+LEXICON NounCont
+  0 NounInfl ;
+  0 NounDeriv ;
+
+LEXICON NounNoPl
+  0 # ;
+  0 NounDeriv ;
+
+LEXICON NounInfl
+  s     PL           # ;
+  0 # ;
+
+LEXICON NounDeriv
+  ful   ADJZ:FULL    AdjDerivInfl ;
+  less  ADJZ:LESS    AdjDerivInfl ;
+  y     ADJZ:Y       AdjInfl ;
+  ly    ADJZ:LY      AdjInfl ;
+  al    ADJZ:AL      AdjDerivInfl ;
+  ish   ADJZ:ISH     AdjDerivInfl ;
+  hood  NMLZ:STATE   NounInfl ;
+  ship  NMLZ:STATE   NounInfl ;
+
+! ---------------------------------------------------------------------
+!  Verbs
+! ---------------------------------------------------------------------
+LEXICON VerbStems @open=V
+  walk       V  VerbInfl ;
+  talk       V  VerbInfl ;
+  jump       V  VerbInfl ;
+  play       V  VerbInfl ;
+  work       V  VerbInfl ;
+  help       V  VerbInfl ;
+  open       V  VerbInfl ;
+  close      V  VerbInfl ;
+  load       V  VerbInfl ;
+  pack       V  VerbInfl ;
+  print      V  VerbInfl ;
+  paint      V  VerbInfl ;
+  call       V  VerbInfl ;
+  fill       V  VerbInfl ;
+  turn       V  VerbInfl ;
+  learn      V  VerbInfl ;
+  view       V  VerbInfl ;
+  visit      V  VerbInfl ;
+  listen     V  VerbInfl ;
+  happen     V  VerbInfl ;
+  enter      V  VerbInfl ;
+  order      V  VerbInfl ;
+  offer      V  VerbInfl ;
+  answer     V  VerbInfl ;
+  cover      V  VerbInfl ;
+  count      V  VerbInfl ;
+  trust      V  VerbInfl ;
+  own        V  VerbInfl ;
+  clean      V  VerbInfl ;
+  dream      V  VerbInfl ;
+  fear       V  VerbInfl ;
+  push       V  VerbInfl ;
+  wish       V  VerbInfl ;
+  watch      V  VerbInfl ;
+  carry      V  VerbInfl ;
+  try        V  VerbInfl ;
+  cry        V  VerbInfl ;
+  study      V  VerbInfl ;
+  worry      V  VerbInfl ;
+  hurry      V  VerbInfl ;
+  apply      V  VerbInfl ;
+  copy       V  VerbInfl ;
+  deny       V  VerbInfl ;
+  reply      V  VerbInfl ;
+  marry      V  VerbInfl ;
+  bake       V  VerbInfl ;
+  hope       V  VerbInfl ;
+  dance      V  VerbInfl ;
+  decide     V  VerbInfl ;
+  change     V  VerbInfl ;
+  arrive     V  VerbInfl ;
+  smile      V  VerbInfl ;
+  lock       V  VerbAble ;
+  love       V  VerbAble ;
+  like       V  VerbAble ;
+  use        V  VerbAble ;
+  believe    V  VerbAble ;
+  fix        V  VerbAble ;
+  wash       V  VerbAble ;
+  reach      V  VerbAble ;
+  test       V  VerbAble ;
+  place      V  VerbMent ;
+  manage     V  VerbMent ;
+  develop    V  VerbMent ;
+  employ     V  VerbMent ;
+  enjoy      V  VerbMent ;
+  pay        V  VerbMent ;
+  move       V  VerbMent ;
+  improve    V  VerbMent ;
+  achieve    V  VerbMent ;
+  settle     V  VerbMent ;
+  connect    V  VerbIon ;
+  act        V  VerbIon ;
+  direct     V  VerbIon ;
+  protect    V  VerbIon ;
+  collect    V  VerbIon ;
+  correct    V  VerbIon ;
+  invent     V  VerbIon ;
+  inspect    V  VerbIon ;
+  express    V  VerbIon ;
+  predict    V  VerbIon ;
+  select     V  VerbIon ;
+  create     V  VerbIon ;
+  form       V  VerbAtion ;
+  inform     V  VerbAtion ;
+  stop       V  VerbAble @double ;
+  plan       V  VerbInfl @double ;
+  drop       V  VerbInfl @double ;
+  shop       V  VerbInfl @double ;
+  run        V  VerbIrr  @double ;
+  begin      V  VerbIrr  @double ;
+  make       V  VerbIrr ;
+  write      V  VerbIrr ;
+  teach      V  VerbIrr ;
+  build      V  VerbIrr ;
+  read       V  VerbIrr ;
+  lead       V  VerbIrr ;
+  sleep      V  VerbIrr ;
+
+LEXICON VerbInfl
+  s     3SG          # ;
+  ed    PAST         # ;
+  ing   PROG         # ;
+  er    AGENT        AgentCont ;
+  0 # ;
+
+! verbs with an irregular past (listed in Closed): no regular -ed
+LEXICON VerbIrr
+  s     3SG          # ;
+  ing   PROG         # ;
+  er    AGENT        AgentCont ;
+  0 # ;
+
+LEXICON VerbAble
+  0 VerbInfl ;
+  able  ABLE         AdjDerivInfl ;
+
+LEXICON VerbMent
+  0 VerbAble ;
+  ment  NMLZ         NounInfl ;
+
+LEXICON VerbIon
+  0 VerbAble ;
+  ion   NMLZ         NounInfl ;
+  ive   ADJZ:IVE     AdjDerivInfl ;
+
+LEXICON VerbAtion
+  0 VerbAble ;
+  ation NMLZ         NounInfl ;
+
+LEXICON AgentCont
+  0 NounInfl ;
+  ship  NMLZ:STATE   NounInfl ;
+
+! ---------------------------------------------------------------------
+!  Adjectives
+! ---------------------------------------------------------------------
+LEXICON AdjStems @open=ADJ
+  happy      ADJ  AdjInfl ;
+  easy       ADJ  AdjInfl ;
+  busy       ADJ  AdjInfl ;
+  heavy      ADJ  AdjInfl ;
+  ready      ADJ  AdjInfl ;
+  angry      ADJ  AdjInfl ;
+  pretty     ADJ  AdjInfl ;
+  lucky      ADJ  AdjInfl ;
+  kind       ADJ  AdjInfl ;
+  clear      ADJ  AdjInfl ;
+  quick      ADJ  AdjInfl ;
+  slow       ADJ  AdjInfl ;
+  cold       ADJ  AdjInfl ;
+  warm       ADJ  AdjInfl ;
+  loud       ADJ  AdjInfl ;
+  quiet      ADJ  AdjInfl ;
+  large      ADJ  AdjInfl ;
+  nice       ADJ  AdjInfl ;
+  safe       ADJ  AdjInfl ;
+  fair       ADJ  AdjInfl ;
+  new        ADJ  AdjInfl ;
+  old        ADJ  AdjInfl ;
+  young      ADJ  AdjInfl ;
+  strong     ADJ  AdjInfl ;
+  rich       ADJ  AdjInfl ;
+  poor       ADJ  AdjInfl ;
+  clean      ADJ  AdjInfl ;
+  green      ADJ  AdjInfl ;
+  common     ADJ  AdjInfl ;
+  polite     ADJ  AdjInfl ;
+  big        ADJ  AdjInfl @double ;
+  hot        ADJ  AdjInfl @double ;
+  thin       ADJ  AdjInfl @double ;
+  wet        ADJ  AdjInfl @double ;
+  sad        ADJ  AdjEn   @double ;
+  fat        ADJ  AdjEn   @double ;
+  red        ADJ  AdjEn   @double ;
+  dark       ADJ  AdjEn ;
+  bright     ADJ  AdjEn ;
+  soft       ADJ  AdjEn ;
+  hard       ADJ  AdjEn ;
+  short      ADJ  AdjEn ;
+  sharp      ADJ  AdjEn ;
+  thick      ADJ  AdjEn ;
+  white      ADJ  AdjEn ;
+  loose      ADJ  AdjEn ;
+  wide       ADJ  AdjEn ;
+  correct    ADJ  AdjDerivInfl ;
+  able       ADJ  AdjDerivInfl ;
+  aware      ADJ  AdjDerivInfl ;
+  usual      ADJ  AdjDerivInfl ;
+  certain    ADJ  AdjDerivInfl ;
+  real       ADJ  AdjDerivInfl ;
+
+LEXICON AdjInfl
+  er    CMP          # ;
+  est   SUP          # ;
+  ly    ADV          # ;
+  ness  NMLZ         NounInfl ;
+  0 # ;
+
+LEXICON AdjEn
+  0 AdjInfl ;
+  en    VBZ          VerbInfl ;
+
+LEXICON AdjDerivInfl
+  ly    ADV          # ;
+  ness  NMLZ         NounInfl ;
+  0 # ;
+
+! ---------------------------------------------------------------------
+!  Orthographic rules (obligatory, compiled into allomorphs)
+! ---------------------------------------------------------------------
+RULES
+  y_to_i:  y  -> i    / C _ +{ness,ly,er,est,ful,ed,less,al} ;
+  y_ie:    y  -> ie   / C _ +{s} ;
+  y_sfx:   y  -> i    / ^ _ +{ness,ly,er,est} ;
+  e_del:   e  -> 0    / C _ +{ing,ed,er,est,able,ion,ive,y,al,en,ation} ;
+  le_ly:   le -> 0    / C _ +{ly} ;
+  double:  .  -> $$   / _ +{ing,ed,er,est,y,en,able} @double ;
+  x_es:    x  -> xe   / _ +{s} ;
+  ch_es:   ch -> che  / _ +{s} ;
+  sh_es:   sh -> she  / _ +{s} ;
+  ss_es:   ss -> sse  / _ +{s} ;
+
+! ---------------------------------------------------------------------
+!  Extra subword pieces for the fallback layer
+! ---------------------------------------------------------------------
+PIECES
+  bl br cl cr dr fl fr gl gr pl pr sc sk sl sm sn sp st str sw tr th sh ch wh qu
+  ##th ##sh ##ch ##ck ##ng ##st ##nt ##rp ##rk ##ll ##ss ##tt
+  ##tastic ##ology ##ization ##ize ##ify ##esque ##ism ##ist ##ic ##ous ##tion
+  . , : ? ' " ( ) - /
+  0 1 2 3 4 5 6 7 8 9 ##0 ##1 ##2 ##3 ##4 ##5 ##6 ##7 ##8 ##9

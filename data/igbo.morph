@@ -1,0 +1,168 @@
+! =====================================================================
+!  igbo.morph — simplified Igbo verb morphology for morph-fst
+! ---------------------------------------------------------------------
+!  Igbo has ATR vowel harmony in BOTH directions:
+!    +ATR  i u e o        −ATR  ị ụ a ọ
+!  * prefixes agree with the root to their RIGHT (regressive):
+!      i-ri 'to eat'  ị-ga 'to go'      e-ri / a-ga (participle, na-eri)
+!    → RFEATURE `atr`: ATR of the nearest vowel to the right, computed
+!      from the end of the word.
+!  * the past suffix -rV copies the root vowel to its LEFT (progressive):
+!      ri-ri 'ate'  ga-ra 'went'  hụ-rụ 'saw'  nye-re 'gave'
+!    → FEATURE `lastv`: the last vowel seen.
+!  Simplified demo: tones are stripped (OPTION strip_tones), and the
+!  negative suffix is written -ghị throughout, since harmonised -ghi is
+!  spelled inconsistently in practice.
+! =====================================================================
+
+OPTION max_morph_chars 48
+OPTION strip_tones true
+
+CLASS V     = a e i o u ị ụ ọ
+CLASS PLUS  = i u e o
+CLASS MINUS = ị ụ a ọ
+
+RFEATURE atr
+  [PLUS] -> plus
+  [MINUS] -> minus
+
+FEATURE lastv
+  a -> a
+  e -> e
+  i -> i
+  o -> o
+  u -> u
+  ị -> ị
+  ụ -> ụ
+  ọ -> ọ
+
+! infinitive prefix i- / ị-
+ARCHI I
+  atr=minus -> ị
+  * -> i
+
+! participle / negative-indicative prefix e- / a-
+ARCHI E
+  atr=minus -> a
+  * -> e
+
+! vowel copy (past -rV)
+ARCHI V
+  lastv=e -> e
+  lastv=i -> i
+  lastv=o -> o
+  lastv=u -> u
+  lastv=ị -> ị
+  lastv=ụ -> ụ
+  lastv=ọ -> ọ
+  * -> a
+
+LEXICON Root
+  0 Bare ;
+  0 Prefixed ;
+
+LEXICON Prefixed
+  {I}   INF       VerbsPfx ;
+  {E}   PTCP      VerbsPfx ;
+  {E}   NEG.IND   VerbsNeg ;
+
+! bare root + suffix
+LEXICON Bare
+  ri     V:eat      BareEnd ;
+  si     V:cook     BareEnd ;
+  bi     V:live     BareEnd ;
+  nye    V:give     BareEnd ;
+  me     V:do       BareEnd ;
+  de     V:write    BareEnd ;
+  ke     V:share    BareEnd ;
+  kwu    V:say      BareEnd ;
+  zu     V:steal    BareEnd ;
+  ga     V:go       BareEnd ;
+  bịa    V:come     BareEnd ;
+  hụ     V:see      BareEnd ;
+  zụ     V:buy      BareEnd ;
+  gụ     V:read     BareEnd ;
+  bụ     V:be       BareEnd ;
+  chọ    V:want     BareEnd ;
+  kpọ    V:call     BareEnd ;
+  nọ     V:stay     BareEnd ;
+  lụ     V:marry    BareEnd ;
+  sa     V:wash     BareEnd ;
+  za     V:sweep    BareEnd ;
+  gba    V:run      BareEnd ;
+  pụ     V:go.out   BareEnd ;
+  nụ     V:hear     BareEnd ;
+  ṅụ     V:drink    BareEnd ;
+  dọ     V:pull     BareEnd ;
+  ta     V:chew     BareEnd ;
+
+LEXICON BareEnd
+  r{V}  PST       # ;
+  ghị    NEG       # ;
+
+! root after the infinitive / participle prefix
+LEXICON VerbsPfx @open=V
+  ri     V:eat      # ;
+  si     V:cook     # ;
+  bi     V:live     # ;
+  nye    V:give     # ;
+  me     V:do       # ;
+  de     V:write    # ;
+  ke     V:share    # ;
+  kwu    V:say      # ;
+  zu     V:steal    # ;
+  ga     V:go       # ;
+  bịa    V:come     # ;
+  hụ     V:see      # ;
+  zụ     V:buy      # ;
+  gụ     V:read     # ;
+  bụ     V:be       # ;
+  chọ    V:want     # ;
+  kpọ    V:call     # ;
+  nọ     V:stay     # ;
+  lụ     V:marry    # ;
+  sa     V:wash     # ;
+  za     V:sweep    # ;
+  gba    V:run      # ;
+  pụ     V:go.out   # ;
+  nụ     V:hear     # ;
+  ṅụ     V:drink    # ;
+  dọ     V:pull     # ;
+  ta     V:chew     # ;
+
+! root after the negative-indicative prefix (erighị, agaghị)
+LEXICON VerbsNeg
+  ri     V:eat      NegEnd ;
+  si     V:cook     NegEnd ;
+  bi     V:live     NegEnd ;
+  nye    V:give     NegEnd ;
+  me     V:do       NegEnd ;
+  de     V:write    NegEnd ;
+  ke     V:share    NegEnd ;
+  kwu    V:say      NegEnd ;
+  zu     V:steal    NegEnd ;
+  ga     V:go       NegEnd ;
+  bịa    V:come     NegEnd ;
+  hụ     V:see      NegEnd ;
+  zụ     V:buy      NegEnd ;
+  gụ     V:read     NegEnd ;
+  bụ     V:be       NegEnd ;
+  chọ    V:want     NegEnd ;
+  kpọ    V:call     NegEnd ;
+  nọ     V:stay     NegEnd ;
+  lụ     V:marry    NegEnd ;
+  sa     V:wash     NegEnd ;
+  za     V:sweep    NegEnd ;
+  gba    V:run      NegEnd ;
+  pụ     V:go.out   NegEnd ;
+  nụ     V:hear     NegEnd ;
+  ṅụ     V:drink    NegEnd ;
+  dọ     V:pull     NegEnd ;
+  ta     V:chew     NegEnd ;
+
+LEXICON NegEnd
+  ghị    NEG       # ;
+
+PIECES
+  . , : ? " ( ) - /
+  0 1 2 3 4 5 6 7 8 9 ##0 ##1 ##2 ##3 ##4 ##5 ##6 ##7 ##8 ##9
