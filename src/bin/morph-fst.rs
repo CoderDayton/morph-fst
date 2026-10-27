@@ -7,11 +7,11 @@ use std::io::Read;
 use std::process::ExitCode;
 use std::time::Instant;
 
-use morph_fst::fused::{derive_vocab, FusedLexer, Mode};
+use morph_fst::fused::derive_vocab;
 use morph_fst::output::{analysis_string, segmentation, WordOutput};
 use morph_fst::rng::Rng;
 use morph_fst::normalize::compose_hangul;
-use morph_fst::{lex_text_with, oracle, spec, Error, Result};
+use morph_fst::{oracle, spec, Error, Lexer, Mode, Result};
 
 const USAGE: &str = "\
 morph-fst — morphological FST with deterministic subword fallback
@@ -21,6 +21,8 @@ BUILD (one source, one compile loop, one artifact)
          (--corpus: learn the spec's INDUCE exceptions from raw text first)
   induce <spec.morph> <text.txt> [-o <annotated.morph>]
          show which roots are exceptions; -o writes them into the spec
+  generate <unimorph.tsv> [-o <spec.morph>]
+         draft a spec from UniMorph tables (lemma<TAB>form<TAB>features)
 
 USE
   analyze  <SOURCE> word...                     all morphological analyses
@@ -109,14 +111,33 @@ impl Args {
     }
 }
 
-fn load_source(a: &Args) -> Result<FusedLexer> {
+fn load_source(a: &Args) -> Result<Lexer> {
     if let Some(p) = a.get("--spec") {
-        return FusedLexer::compile(&spec_text(p)?);
+        return Lexer::compile(&spec_text(p)?);
     }
     if let Some(p) = a.get("--fused") {
-        return FusedLexer::from_bytes(&read(p)?);
+        return Lexer::from_bytes(&read(p)?);
     }
     Err(Error::Io("need --spec or --fused".into()))
+}
+
+/// `generate <unimorph.tsv> [-o out.morph]`: spec to the file or stdout,
+/// summary and skipped rows to stderr.
+fn generate(a: &Args) -> Result<()> {
+    let path = a.pos1("UniMorph file")?;
+    let g = morph_fst::generate::from_unimorph(&read_text(path)?)?;
+    match a.get("-o") {
+        Some(o) => write(o, g.spec.as_bytes())?,
+        None => print!("{}", g.spec),
+    }
+    eprintln!("{} lemmas, {} forms, {} paradigm classes, {} irregular forms", g.lemmas, g.forms, g.paradigms, g.irregular);
+    if !g.skipped.is_empty() {
+        eprintln!("skipped {} row(s):", g.skipped.len());
+        for (line, why) in g.skipped.iter().take(10) {
+            eprintln!("  {path}:{line}: {why}");
+        }
+    }
+    Ok(())
 }
 
 fn run(argv: &[String]) -> Result<()> {
@@ -132,11 +153,11 @@ fn run(argv: &[String]) -> Result<()> {
             let src = spec_text(a.pos1("spec")?)?;
             let lx = match a.get("--corpus") {
                 Some(c) => {
-                    let (lx, ind) = FusedLexer::compile_with_corpus(&src, &read_text(c)?)?;
+                    let (lx, ind) = Lexer::compile_with_corpus(&src, &read_text(c)?)?;
                     eprintln!("learned {} exception(s) from {} tokens", ind.exceptions().count(), ind.tokens);
                     lx
                 }
-                None => FusedLexer::compile(&src)?,
+                None => Lexer::compile(&src)?,
             };
             let bytes = lx.to_bytes();
             write(a.out()?, &bytes)?;
@@ -179,6 +200,7 @@ fn run(argv: &[String]) -> Result<()> {
                 eprintln!("wrote {o} ({} learned flag(s))", ind.exceptions().count());
             }
         }
+        "generate" => generate(&a)?,
         "dump-expanded" => {
             let g = spec::load(&spec_text(a.pos1("spec")?)?)?;
             for e in &g.entries {
@@ -224,7 +246,7 @@ fn run(argv: &[String]) -> Result<()> {
         "analyze" => {
             let lx = load_source(&a)?;
             for w in &a.pos {
-                let w = &lx.normalize(w);
+                let w = &morph_fst::normalize::normalize(w, &lx.mt.norm);
                 match lx.analyze(w, 64) {
                     Some(WordOutput::Analyzed { all, .. }) => {
                         for an in all {
@@ -236,7 +258,7 @@ fn run(argv: &[String]) -> Result<()> {
             }
         }
         "tokenize" => {
-            let lx = load_source(&a)?;
+            let mut lx = load_source(&a)?;
             let mode = match a.get("--mode").unwrap_or("strict") {
                 "strict" => Mode::Strict,
                 "hybrid" => Mode::Hybrid,
@@ -249,11 +271,10 @@ fn run(argv: &[String]) -> Result<()> {
             } else {
                 a.pos.join(" ")
             };
-            let mut norm = lx.mt.norm;
             if a.has("--keep-case") {
-                norm.case = spec::CaseMode::None;
+                lx.mt.norm.case = spec::CaseMode::None;
             }
-            let results = lex_text_with(&lx.with_mode(mode), &text, &norm);
+            let results = lx.lex_text(&text, mode);
             if a.has("--tokens") {
                 let toks: Vec<String> = results.iter().flat_map(|(_, o)| o.tokens()).collect();
                 println!("{}", toks.join(" "));
@@ -285,13 +306,13 @@ fn bench(spec_text: &str, n_words: usize, reps: usize) -> Result<()> {
     let mut times = Vec::new();
     for _ in 0..21 {
         let t = Instant::now();
-        let f = FusedLexer::compile(spec_text)?;
+        let f = Lexer::compile(spec_text)?;
         let bf = f.to_bytes();
         times.push(t.elapsed().as_secs_f64() * 1e3);
         std::hint::black_box(bf);
     }
     let g = spec::load(spec_text)?;
-    let fused = FusedLexer::from_grammar(&g);
+    let fused = Lexer::from_grammar(&g);
     println!("build (median of 21, incl. serialization)   [{} entries]", g.entries.len());
     println!("  {:7.2} ms   {} bytes", median(times), fused.to_bytes().len());
 

@@ -185,7 +185,7 @@ pub fn induce(spec: &Spec, corpus: &str) -> Result<Induction> {
         hspec.lexicons[r.li].entries[r.ei] = variants.remove(0);
         hspec.lexicons[r.li].entries.extend(variants);
     }
-    let lexer = crate::fused::FusedLexer::from_grammar(&spec::compile_grammar(&hspec)?);
+    let lexer = crate::Lexer::from_grammar(&spec::compile_grammar(&hspec)?);
     // corpus word types
     let norm = lexer.mt.norm;
     let text = crate::normalize::normalize(corpus, &norm);

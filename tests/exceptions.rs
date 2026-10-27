@@ -3,12 +3,12 @@
 //! * `INDUCE` + corpus: exceptions learned from raw text,
 //! * `INDUCE` at runtime: unknown stems infer their own exception.
 
-use morph_fst::fused::{FusedLexer, Mode};
+use morph_fst::{Lexer, Mode};
 use morph_fst::induce::induce;
 use morph_fst::oracle::{self, Gloss};
 use morph_fst::rng::Rng;
 use morph_fst::spec::{self, parse_spec};
-use morph_fst::{languages, WordLexer, WordOutput};
+use morph_fst::{languages, Segment, WordOutput};
 use std::collections::BTreeSet;
 
 type TestResult = Result<(), Box<dyn std::error::Error>>;
@@ -104,8 +104,8 @@ LEXICON Sfx
   0 # ;
 "#;
 
-fn lexer(text: &str) -> morph_fst::Result<FusedLexer> {
-    FusedLexer::compile(text)
+fn lexer(text: &str) -> morph_fst::Result<Lexer> {
+    Lexer::compile(text)
 }
 
 /// (root surface, learned flag) for every learned exception.
@@ -113,8 +113,8 @@ fn learned_flags(ind: &morph_fst::Induction) -> BTreeSet<(String, String)> {
     ind.exceptions().filter_map(|d| d.flag.clone().map(|f| (d.surface.clone(), f))).collect()
 }
 
-fn accepts(f: &FusedLexer, w: &str) -> bool {
-    matches!(f.lex_word(w), WordOutput::Analyzed { .. })
+fn accepts(f: &Lexer, w: &str) -> bool {
+    matches!(f.lex(w, Mode::Strict), WordOutput::Analyzed { .. })
 }
 
 #[test]
@@ -145,8 +145,8 @@ fn turkish_exceptions_are_learned_not_marked() -> TestResult {
         ["saat", "harf", "hayal", "kalp"].iter().map(|s| (s.to_string(), "set:vow=fu".to_string())).collect();
     assert_eq!(learned, want);
     // the learned lexer behaves exactly like the hand-marked one (strict)
-    let hand = FusedLexer::compile(languages::TURKISH)?;
-    let auto = FusedLexer::from_grammar(&spec::compile_grammar(&ind.spec)?);
+    let hand = Lexer::compile(languages::TURKISH)?;
+    let auto = Lexer::from_grammar(&spec::compile_grammar(&ind.spec)?);
     assert_eq!(hand.mt.entries, auto.mt.entries);
     let words: Vec<String> = oracle::generate(&parse_spec(languages::TURKISH)?, 4, 50_000)?.surfaces.into_keys().collect();
     let mut rng = Rng::new(3);
@@ -162,9 +162,9 @@ fn turkish_exceptions_are_learned_not_marked() -> TestResult {
     // the annotated spec reproduces the same grammar
     let annotated = ind.annotate(&unmarked);
     assert!(annotated.lines().any(|l| l.trim_start().starts_with("saat") && l.contains("@set:vow=fu ;  ! learned")));
-    assert_eq!(FusedLexer::compile(&annotated)?.mt.entries, auto.mt.entries);
+    assert_eq!(Lexer::compile(&annotated)?.mt.entries, auto.mt.entries);
     // without a corpus nothing is learned and saatler is rejected again
-    let bare = FusedLexer::compile(&unmarked)?;
+    let bare = Lexer::compile(&unmarked)?;
     assert!(matches!(bare.lex("saatler", Mode::Strict), WordOutput::Fallback(_)));
     Ok(())
 }
@@ -176,27 +176,51 @@ fn right_and_left_exceptions_are_learned_per_feature() -> TestResult {
     let learned = learned_flags(&ind);
     let want: BTreeSet<(String, String)> = [("pil", "rset:h=m"), ("pil", "set:lf=m")].iter().map(|(a, b)| (a.to_string(), b.to_string())).collect();
     assert_eq!(learned, want);
-    let (lx, _) = FusedLexer::compile_with_corpus(PINS_INDUCE, corpus)?;
+    let (lx, _) = Lexer::compile_with_corpus(PINS_INDUCE, corpus)?;
     for w in ["bapil", "badapil", "bapilno", "pilno", "betik", "tikni"] {
-        assert!(matches!(lx.lex_word(w), WordOutput::Analyzed { .. }), "{w}");
+        assert!(matches!(lx.lex(w, Mode::Strict), WordOutput::Analyzed { .. }), "{w}");
     }
     for w in ["bepil", "pilni", "bapilni", "batik"] {
-        assert!(matches!(lx.lex_word(w), WordOutput::Fallback(_)), "{w}");
+        assert!(matches!(lx.lex(w, Mode::Strict), WordOutput::Fallback(_)), "{w}");
     }
+    Ok(())
+}
+
+/// Readings that print the same text but guess different exceptions or
+/// classes for the unknown stem are distinct readings.
+#[test]
+fn bare_head_readings_differ_by_guess() -> TestResult {
+    let tr = Lexer::compile(&(languages::TURKISH.to_string() + "\nINDUCE vow IN Nouns Adjs\n"))?;
+    let Some(guesses) = (match tr.lex("evlar", Mode::Hybrid) {
+        WordOutput::Hybrid { all, .. } => Some(
+            all.iter()
+                .flatten()
+                .filter_map(|s| match s {
+                    Segment::Unknown { guess, .. } => Some(guess.clone()),
+                    _ => None,
+                })
+                .collect::<BTreeSet<String>>(),
+        ),
+        _ => None,
+    }) else {
+        return Err("evlar is not a hybrid reading".into());
+    };
+    assert!(guesses.contains("N vow=bu") && guesses.contains("ADJ vow=bu"), "{guesses:?}");
     Ok(())
 }
 
 #[test]
 fn unknown_stems_infer_their_exception() -> TestResult {
     // left: Turkish loanword with INDUCE
-    let tr = FusedLexer::compile(&(languages::TURKISH.to_string() + "\nINDUCE vow IN Nouns Adjs\n"))?;
+    let tr = Lexer::compile(&(languages::TURKISH.to_string() + "\nINDUCE vow IN Nouns Adjs\n"))?;
     assert_eq!(tr.lex("googlelar", Mode::Hybrid).render(), "⟨google⟩<?N vow=bu>{g ##o ##o ##g ##le} + lAr<PL>");
     assert_eq!(tr.lex("googlelerden", Mode::Hybrid).render(), "⟨google⟩<?N>{g ##o ##o ##g ##le} + lAr<PL> + DAn<ABL>");
     // without INDUCE the suffix cannot attach to a front-final unknown stem
-    let plain = FusedLexer::compile(languages::TURKISH)?;
-    assert!(matches!(plain.lex("googlelar", Mode::Hybrid), WordOutput::Fallback(_)));
+    let plain = Lexer::compile(languages::TURKISH)?;
+    let out = plain.lex("googlelar", Mode::Hybrid);
+    assert!(!out.tokens().iter().any(|t| t.ends_with("<PL>")), "{}", out.render());
     // right: a prefix that disagrees with an unknown root's vowels
-    let ch = FusedLexer::compile(CHAINS_INDUCE)?;
+    let ch = Lexer::compile(CHAINS_INDUCE)?;
     assert_eq!(ch.lex("betot", Mode::Hybrid).render(), "bA<P1> + ⟨tot⟩<?S h=p>{t ##o ##t}");
     assert_eq!(ch.lex("batot", Mode::Hybrid).render(), "bA<P1> + ⟨tot⟩<?S>{t ##o ##t}");
     // known words never change
@@ -236,17 +260,17 @@ fn oracle_on_new_specs() -> TestResult {
             } else {
                 (0..1 + rng.below(9)).map(|_| *rng.pick(&alpha)).collect()
             };
-            if matches!(f.lex_word(&w), WordOutput::Analyzed { .. }) {
-                assert_eq!(f.lex(&w, Mode::Hybrid), f.lex_word(&w), "{name}: {w}");
+            if matches!(f.lex(&w, Mode::Strict), WordOutput::Analyzed { .. }) {
+                assert_eq!(f.lex(&w, Mode::Hybrid), f.lex(&w, Mode::Strict), "{name}: {w}");
             }
         }
         let bytes = f.to_bytes();
-        assert_eq!(FusedLexer::from_bytes(&bytes)?, f, "{name}");
+        assert_eq!(Lexer::from_bytes(&bytes)?, f, "{name}");
         for _ in 0..60 {
             let mut bad = bytes.clone();
             let k = rng.below(bad.len());
             bad[k] ^= 1 << rng.below(8);
-            assert!(FusedLexer::from_bytes(&bad).is_err());
+            assert!(Lexer::from_bytes(&bad).is_err());
         }
     }
     Ok(())

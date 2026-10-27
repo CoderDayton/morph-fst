@@ -6,7 +6,7 @@
 //! Own test binary: it installs a global panic hook to collect locations.
 
 use morph_fst::codec;
-use morph_fst::fused::{FusedLexer, Mode};
+use morph_fst::{Lexer, Mode};
 use morph_fst::rng::Rng;
 use morph_fst::languages;
 use std::collections::BTreeMap;
@@ -104,13 +104,13 @@ fn mutate(payload: &mut [u8], rng: &mut Rng) {
     }
 }
 
-fn exercise(lx: &FusedLexer) {
+fn exercise(lx: &Lexer) {
     for w in WORDS {
         let _ = lx.lex(w, Mode::Strict);
         let _ = lx.lex(w, Mode::Hybrid);
         let _ = lx.analyze(w, 64);
     }
-    let _ = FusedLexer::from_bytes(&lx.to_bytes());
+    let _ = Lexer::from_bytes(&lx.to_bytes());
 }
 
 #[test]
@@ -127,14 +127,14 @@ fn crafted_artifacts_never_panic() -> TestResult {
     let mut rng = Rng::new(41);
     let (mut loaded, mut rejected) = (0usize, 0usize);
     for (name, text) in specs {
-        let data = FusedLexer::compile(text)?.to_bytes();
+        let data = Lexer::compile(text)?.to_bytes();
         let magic: [u8; 4] = data.get(..4).and_then(|m| m.try_into().ok()).ok_or("short artifact")?;
         let payload = data.get(24..).ok_or("short artifact")?;
         for i in 0..iters {
             let mut p = payload.to_vec();
             mutate(&mut p, &mut rng);
             let bytes = codec::wrap(&magic, &p);
-            let r = panic::catch_unwind(AssertUnwindSafe(|| match FusedLexer::from_bytes(&bytes) {
+            let r = panic::catch_unwind(AssertUnwindSafe(|| match Lexer::from_bytes(&bytes) {
                 Ok(lx) => {
                     exercise(&lx);
                     true

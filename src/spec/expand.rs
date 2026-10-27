@@ -98,6 +98,8 @@ pub struct Entry {
     /// realisation before rules, or an `@tier=` override). None in surface
     /// mode, where registers read `surface`.
     pub tier: Option<String>,
+    /// Tags of the zero morphemes that follow this one.
+    pub zeros: Vec<String>,
 }
 
 impl Entry {
@@ -833,6 +835,8 @@ fn internal<T>(line: usize, what: &str) -> Result<T> {
 }
 
 pub fn compile_grammar(spec: &Spec) -> Result<Grammar> {
+    let folded = super::zeros::fold(spec)?;
+    let spec: &Spec = &folded;
     // ---- classes, phonology ---------------------------------------------
     let cls = Classes::build(spec)?;
     let phon = build_phon(spec, &cls)?;
@@ -1281,6 +1285,7 @@ pub fn compile_grammar(spec: &Spec) -> Result<Grammar> {
                     rpin_touch: rpt,
                     reads_right,
                     tier: tier.clone(),
+                    zeros: b.e.zeros.clone(),
                 });
             };
             let base_filter = match &allow_next {

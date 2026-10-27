@@ -1,9 +1,11 @@
 //! # morph-fst
 //!
-//! A rule-based **morphological analyzer** for agglutinative and inflecting
-//! languages, fused with a **deterministic subword fallback** for words the
-//! grammar does not know. One spec file in, one compiled artifact out, one
-//! left-to-right scan per word. No dependencies by default.
+//! A rule-based **morphological analyzer** fused with a **deterministic
+//! subword fallback** for words the grammar does not know. One spec file in,
+//! one compiled artifact out, one left-to-right scan per word. No
+//! dependencies by default.
+//!
+//! [`Lexer`] is the single entry point: build it, then lex.
 //!
 //! ```
 //! use morph_fst::{Lexer, Mode, WordOutput};
@@ -19,8 +21,24 @@
 //!
 //! // Hybrid mode: known affixes around one unknown stem.
 //! assert!(matches!(lx.lex("blorfing", Mode::Hybrid), WordOutput::Hybrid { .. }));
+//!
+//! // Running text: normalized for the language, split into words.
+//! let words = lx.lex_text("The Unhappiest children", Mode::Hybrid);
+//! assert_eq!(words.len(), 3);
 //! # Ok::<(), morph_fst::Error>(())
 //! ```
+//!
+//! ## Building a lexer
+//!
+//! * [`Lexer::bundled`]: a bundled spec by name (English, Turkish, Spanish,
+//!   French, Korean, Igbo).
+//! * [`Lexer::compile`]: your own `.morph` spec text.
+//! * [`Lexer::compile_with_corpus`]: the same, after learning which roots
+//!   are lexical exceptions from raw text (`INDUCE` in the spec).
+//! * [`Lexer::from_bytes`]: a lexer saved with [`Lexer::to_bytes`]. Loading
+//!   validates every table, so a corrupt file is an error, never a panic.
+//!
+//! [`generate::from_unimorph`] drafts a `.morph` spec from UniMorph tables.
 //!
 //! ## What a word becomes
 //!
@@ -33,33 +51,9 @@
 //!   WordPiece longest-match (LinMaxMatch, linear time). The vocabulary is
 //!   derived from the grammar itself, and characters outside it fall back to
 //!   bytes. Concatenating the pieces always gives back the word.
-//! * [`WordOutput::Hybrid`] (with [`Mode::Hybrid`]): known prefixes and
-//!   suffixes around one unknown stem of an open class, e.g. Turkish
-//!   `bloglarımda` → `⟨blog⟩<?N> + lAr<PL> + Ixm<P1SG> + DA<LOC>`.
-//!
-//! ## Languages
-//!
-//! Each language is a plain-text `.morph` spec. The spec language is
-//! lexc/twolc-like: lexicons with continuation classes, sequential
-//! rewrite rules, archiphonemes, and context features. [`languages`] bundles
-//! compact demo specs for English, Turkish, Spanish, French, Korean and Igbo.
-//! Compile your own with [`Lexer::compile`]. The spec language covers:
-//!
-//! * **long-distance harmony in both directions**: `FEATURE` (left context,
-//!   e.g. Turkish suffix harmony) and `RFEATURE` (right context, e.g. Igbo
-//!   prefixes agreeing with the root);
-//! * **opaque (non-surface-true) harmony**: `OPTION harmony underlying`
-//!   makes harmony read each morpheme's underlying form (or an explicit
-//!   `@tier=`), not the surface after rules;
-//! * **lexical exceptions**: marked by hand (`@set:vow=fu` on a root),
-//!   or **learned from raw text**. Declare `INDUCE vow IN Nouns` and call
-//!   [`Lexer::compile_with_corpus`] (see [`induce`]).
-//!
-//! ## Saving and loading
-//!
-//! [`Lexer::to_bytes`] / [`Lexer::from_bytes`] round-trip the compiled
-//! lexer. Loading validates every table, so a corrupt file is an error,
-//! never a panic.
+//! * [`WordOutput::Hybrid`] (with [`Mode::Hybrid`]): known affixes around one
+//!   unknown stem whose class, spelling and lemma come from known stems that
+//!   end the same way, every reading ranked.
 //!
 //! ## Cargo features
 //!
@@ -69,58 +63,44 @@
 #![forbid(unsafe_code)]
 #![deny(clippy::unwrap_used, clippy::expect_used, clippy::panic, clippy::unreachable, clippy::todo, clippy::unimplemented)]
 
-pub mod error;
-pub mod fused;
-pub mod induce;
-pub mod languages;
-pub mod morphotactics;
-pub mod normalize;
-pub mod oracle;
-pub mod output;
-pub mod spec;
-pub mod subword;
+pub mod generate;
 
+// Internals: public for the CLI, tests and examples, not part of the API.
 #[doc(hidden)]
 pub mod codec;
 #[doc(hidden)]
+pub mod error;
+#[doc(hidden)]
+pub mod fused;
+#[doc(hidden)]
+pub mod induce;
+#[doc(hidden)]
+pub mod languages;
+#[doc(hidden)]
 pub mod lattice;
+#[doc(hidden)]
+pub mod morphotactics;
+#[doc(hidden)]
+pub mod normalize;
+#[doc(hidden)]
+pub mod oracle;
+#[doc(hidden)]
+pub mod output;
 #[doc(hidden)]
 pub mod pretok;
 #[doc(hidden)]
 pub mod rng;
+#[doc(hidden)]
+pub mod shapes;
+#[doc(hidden)]
+pub mod spec;
+#[doc(hidden)]
+pub mod subword;
 
 pub use error::{Error, Result};
-pub use fused::{FusedLexer, FusedLexer as Lexer, Mode};
+pub use fused::{Lexer, Mode};
 pub use induce::{Decision, Induction};
 pub use output::{Analysis, Morph, Segment, SubToken, WordOutput};
 
 /// Maximum analyses kept per word in [`WordOutput::Analyzed::all`].
 pub const ANALYSES_CAP: usize = 16;
-
-/// Anything that lexes a single, already-normalized word.
-pub trait WordLexer {
-    /// Lex one normalized word.
-    fn lex_word(&self, word: &str) -> WordOutput;
-    /// The language's normalization settings (from its spec).
-    fn norm(&self) -> normalize::NormOptions {
-        normalize::NormOptions::default()
-    }
-}
-
-/// Normalize `text` for the lexer's language, pre-tokenize, lex each word.
-/// Returned words (and all spans) refer to the normalized text.
-pub fn lex_text<L: WordLexer + ?Sized>(lx: &L, text: &str) -> Vec<(String, WordOutput)> {
-    lex_text_with(lx, text, &lx.norm())
-}
-
-/// Like [`lex_text`] with explicit normalization options.
-pub fn lex_text_with<L: WordLexer + ?Sized>(lx: &L, text: &str, norm: &normalize::NormOptions) -> Vec<(String, WordOutput)> {
-    let text = normalize::normalize(text, norm);
-    pretok::split(&text, norm.apostrophe_in_words)
-        .into_iter()
-        .map(|(s, e)| {
-            let w = &text[s..e];
-            (w.to_string(), lx.lex_word(w))
-        })
-        .collect()
-}

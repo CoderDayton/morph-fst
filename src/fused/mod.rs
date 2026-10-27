@@ -22,10 +22,11 @@ mod scan;
 
 pub use builder::derive_vocab;
 
+use std::collections::HashMap;
+
 use crate::morphotactics::Morphotactics;
 use crate::output::WordOutput;
 use crate::subword::WpTrie;
-use crate::WordLexer;
 
 /// What to do with a word the grammar rejects.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Hash)]
@@ -34,16 +35,17 @@ pub enum Mode {
     /// the whole word ([`WordOutput::Fallback`]).
     #[default]
     Strict,
-    /// Like `Strict`, but a rejected word is first tried as known affixes
-    /// around **one** unknown stem of an open class
-    /// ([`WordOutput::Hybrid`]), e.g. Turkish `bloglarımda` →
-    /// `⟨blog⟩<?N> + lAr<PL> + Ixm<P1SG> + DA<LOC>`. Identical to `Strict` on every word the
-    /// grammar accepts.
+    /// A rejected word becomes known affixes around one unknown stem built
+    /// from known stem endings ([`WordOutput::Hybrid`]): `blopped` →
+    /// `⟨blopp→blop⟩<?V> + ed<PST>`. Accepted words: same as `Strict`.
     Hybrid,
 }
 
-/// The lexer: one compiled artifact holding the morphological transducer
-/// and the subword fallback (exported at the crate root as [`crate::Lexer`]).
+/// The lexer, and the crate's single entry point: create one with
+/// [`bundled`](Self::bundled), [`compile`](Self::compile),
+/// [`compile_with_corpus`](Self::compile_with_corpus) or
+/// [`from_bytes`](Self::from_bytes), then call [`lex`](Self::lex) on a word
+/// or [`lex_text`](Self::lex_text) on running text.
 ///
 /// ```
 /// use morph_fst::{Lexer, Mode, WordOutput};
@@ -58,16 +60,16 @@ pub enum Mode {
 /// # Ok::<(), morph_fst::Error>(())
 /// ```
 #[derive(Clone, Debug, PartialEq, Eq)]
-pub struct FusedLexer {
-    /// Morphotactics, context registers and morpheme entries (low level).
+pub struct Lexer {
+    #[doc(hidden)]
     pub mt: Morphotactics,
-    /// The shared character trie: morpheme payloads + WordPiece pieces.
+    #[doc(hidden)]
     pub trie: WpTrie,
 }
 
-impl FusedLexer {
-    /// Compile one of the specs bundled in [`crate::languages`] by name
-    /// (`"english"`, `"turkish"`, `"tr"`, ...).
+impl Lexer {
+    /// Compile a bundled spec by name: `english`, `turkish`, `spanish`,
+    /// `french`, `korean`, `igbo` (or `en`, `tr`, ...).
     pub fn bundled(name: &str) -> crate::Result<Self> {
         match crate::languages::by_name(name) {
             Some(src) => Self::compile(src),
@@ -75,8 +77,8 @@ impl FusedLexer {
         }
     }
 
-    /// Lex one word. The word must already be normalized for the language
-    /// (see [`Self::normalize`]); [`Self::lex_text`] does that for you.
+    /// Lex one word. The word must already be normalized for the language;
+    /// [`Self::lex_text`] does that for you.
     pub fn lex(&self, word: &str, mode: Mode) -> WordOutput {
         match mode {
             Mode::Strict => self.lex_strict(word),
@@ -84,46 +86,22 @@ impl FusedLexer {
         }
     }
 
-    /// Normalize running text for this language (case folding, Unicode
-    /// composition, apostrophes, tone stripping, Hangul jamo, as the spec's
-    /// `OPTION`s say).
-    pub fn normalize(&self, text: &str) -> String {
-        crate::normalize::normalize(text, &self.mt.norm)
-    }
-
-    /// Normalize `text`, split it into words, and lex each one. Returns the
-    /// normalized words with their outputs; spans in the outputs are byte
-    /// offsets into those words.
+    /// Normalize `text` the way the spec's `OPTION`s say (case folding,
+    /// Unicode composition, apostrophes, tone stripping, Hangul jamo), split
+    /// it into words, and lex each one. Returns the normalized words with
+    /// their outputs; spans are byte offsets into those words.
     pub fn lex_text(&self, text: &str, mode: Mode) -> Vec<(String, WordOutput)> {
-        crate::lex_text(&self.with_mode(mode), text)
-    }
-
-    /// A [`WordLexer`] view running in `mode`.
-    pub fn with_mode(&self, mode: Mode) -> ModeLexer<'_> {
-        ModeLexer { lx: self, mode }
-    }
-}
-
-impl WordLexer for FusedLexer {
-    fn lex_word(&self, word: &str) -> WordOutput {
-        self.lex_strict(word)
-    }
-    fn norm(&self) -> crate::normalize::NormOptions {
-        self.mt.norm
-    }
-}
-
-/// A [`FusedLexer`] fixed to one [`Mode`]; see [`FusedLexer::with_mode`].
-pub struct ModeLexer<'a> {
-    lx: &'a FusedLexer,
-    mode: Mode,
-}
-
-impl WordLexer for ModeLexer<'_> {
-    fn lex_word(&self, word: &str) -> WordOutput {
-        self.lx.lex(word, self.mode)
-    }
-    fn norm(&self) -> crate::normalize::NormOptions {
-        self.lx.mt.norm
+        let norm = &self.mt.norm;
+        let text = crate::normalize::normalize(text, norm);
+        // Text repeats words; lex each distinct word once.
+        let mut first: HashMap<&str, usize> = HashMap::new();
+        let mut out: Vec<(String, WordOutput)> = Vec::new();
+        for w in crate::pretok::split(&text, norm.apostrophe_in_words).into_iter().filter_map(|(s, e)| text.get(s..e)) {
+            let cached = first.get(w).and_then(|&i| out.get(i)).map(|(_, o)| o.clone());
+            let o = cached.unwrap_or_else(|| self.lex(w, mode));
+            first.entry(w).or_insert(out.len());
+            out.push((w.to_string(), o));
+        }
+        out
     }
 }

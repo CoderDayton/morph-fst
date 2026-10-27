@@ -9,13 +9,14 @@
 //!   contract.
 //! * LinMaxMatch's output is buffered and used only if the lattice rejects.
 
-use super::FusedLexer;
+use super::Lexer;
 use crate::lattice::LatticeBuilder;
 use crate::output::WordOutput;
 use crate::subword::{LinMax, ROOT_INIT};
 use crate::ANALYSES_CAP;
 
-impl FusedLexer {
+impl Lexer {
+    #[doc(hidden)]
     pub fn lattice(&self, word: &str) -> Option<crate::lattice::Lattice> {
         let (lat, _) = self.scan(word, false);
         lat
@@ -26,8 +27,8 @@ impl FusedLexer {
     pub(crate) fn scan(&self, word: &str, with_pieces: bool) -> (Option<crate::lattice::Lattice>, Vec<crate::output::SubToken>) {
         let morph = !word.is_empty() && word.chars().count() <= self.mt.max_morph_chars as usize;
         let mut lb = morph.then(|| LatticeBuilder::new(&self.mt, word));
-        let mut walkers: Vec<(u32, u32)> = Vec::new();
-        let mut arcs: Vec<(u32, u32)> = Vec::new();
+        let mut walkers: Vec<(u32, u32)> = Vec::with_capacity(word.len());
+        let mut arcs: Vec<(u32, u32)> = Vec::with_capacity(16);
         let mut lm = LinMax::new();
         let mut pieces = Vec::new();
         let mut steps = 0u64;
@@ -62,6 +63,7 @@ impl FusedLexer {
 
     /// All analyses of a normalized word (up to `cap`, best first), or
     /// `None` if the grammar rejects it. No fallback.
+    #[doc(hidden)]
     pub fn analyze(&self, word: &str, cap: usize) -> Option<WordOutput> {
         let lat = self.lattice(word)?;
         let (best, all) = lat.decode(&self.mt, cap)?;
@@ -69,7 +71,7 @@ impl FusedLexer {
     }
 
     /// [`Mode::Strict`](super::Mode::Strict) lexing of a normalized word.
-    pub fn lex_strict(&self, word: &str) -> WordOutput {
+    pub(crate) fn lex_strict(&self, word: &str) -> WordOutput {
         let (lat, pieces) = self.scan(word, true);
         if let Some(lat) = lat {
             if let Some((best, all)) = lat.decode(&self.mt, ANALYSES_CAP) {

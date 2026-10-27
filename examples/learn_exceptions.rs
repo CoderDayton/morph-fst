@@ -8,13 +8,13 @@
 //! few sentences of ordinary text.
 //!
 //! cargo run --example learn_exceptions
-use morph_fst::fused::{FusedLexer, Mode};
+use morph_fst::{Lexer, Mode};
 use morph_fst::languages;
 
 fn main() -> morph_fst::Result<()> {
     let spec = languages::TURKISH.replace(" @set:vow=fu", "") + "\nINDUCE vow IN Nouns Adjs\n";
     let corpus = include_str!("../data/turkish_corpus.txt");
-    let (lexer, learned) = FusedLexer::compile_with_corpus(&spec, corpus)?;
+    let (lexer, learned) = Lexer::compile_with_corpus(&spec, corpus)?;
     println!("corpus: {} tokens, {} types", learned.tokens, learned.types);
     for d in learned.exceptions() {
         println!("learned  {:<8} @{}   (support {} vs surface {}{})", d.surface, d.flag.as_deref().unwrap_or(""), d.support, d.surface_support, if d.ambiguous { ", ambiguous" } else { "" });

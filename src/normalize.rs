@@ -1,5 +1,5 @@
-//! Language-aware text normalization (applied by [`crate::lex_text`] before
-//! pre-tokenization; `lex_word` expects already-normalized words).
+//! Language-aware text normalization (applied by [`crate::Lexer::lex_text`] before
+//! pre-tokenization; `Lexer::lex` expects already-normalized words).
 //!
 //! * Latin composition: base letter + combining mark → precomposed char
 //!   (`e`+U+0301 → `é`), so decomposed input matches the spec.
@@ -114,6 +114,12 @@ const LATIN: &[(char, char, char)] = &[
     ('Ù', 'U', '\u{300}'), ('Ú', 'U', '\u{301}'), ('Û', 'U', '\u{302}'), ('Ü', 'U', '\u{308}'),
     ('Ý', 'Y', '\u{301}'), ('Ñ', 'N', '\u{303}'), ('Ç', 'C', '\u{327}'), ('Ğ', 'G', '\u{306}'), ('Ş', 'S', '\u{327}'),
 ];
+
+/// The base letter of a precomposed Latin letter (`á` → `a`, `ị` → `i`);
+/// other chars unchanged.
+pub(crate) fn base_letter(c: char) -> char {
+    LATIN.iter().chain(DOTTED).find(|&&(k, _, _)| k == c).map_or(c, |&(_, b, _)| b)
+}
 
 fn compose_pair(base: char, mark: char) -> Option<char> {
     LATIN.iter().find(|&&(_, b, m)| b == base && m == mark).map(|&(c, _, _)| c)

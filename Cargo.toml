@@ -54,6 +54,11 @@ name = "corpus"
 [[example]]
 name = "probe"
 
+# Regenerates data/english.morph from tools/english/grammar.morph and ESDB.
+[[example]]
+name = "build_english"
+test = true
+
 [[test]]
 name = "api"
 

@@ -516,9 +516,10 @@ pub fn generate(spec: &Spec, max_morphs: usize, max_paths: usize) -> Result<Gene
     let it = Interp::new(spec);
     let lex: HashMap<&str, &[SpecEntry]> = spec.lexicons.iter().map(|l| (l.name.as_str(), l.entries.as_slice())).collect();
     let mut out = Generated::default();
-    let mut stack: Vec<(&str, Vec<&SpecEntry>)> = vec![("Root", Vec::new())];
+    // (class, overt morphemes, gloss including zero morphemes)
+    let mut stack: Vec<(&str, Vec<&SpecEntry>, Gloss)> = vec![("Root", Vec::new(), Vec::new())];
     let mut paths = 0usize;
-    while let Some((class, path)) = stack.pop() {
+    while let Some((class, path, gloss)) = stack.pop() {
         if class == "#" {
             if path.is_empty() {
                 continue;
@@ -527,7 +528,6 @@ pub fn generate(spec: &Spec, max_morphs: usize, max_paths: usize) -> Result<Gene
             if paths > max_paths {
                 break;
             }
-            let gloss: Gloss = path.iter().map(|e| (e.lemma.clone(), e.tag.clone())).collect();
             let reals = it.realize_path(&path, true);
             for (real, _, ok) in &reals {
                 if *ok {
@@ -548,12 +548,17 @@ pub fn generate(spec: &Spec, max_morphs: usize, max_paths: usize) -> Result<Gene
         }
         let Some(entries) = lex.get(class) else { continue };
         for e in entries.iter().rev() {
-            if e.is_epsilon() {
-                stack.push((&e.cont, path.clone()));
+            let mut g = gloss.clone();
+            if e.is_zero() {
+                g.push((String::new(), e.tag.clone()));
+                stack.push((&e.cont, path.clone(), g));
+            } else if e.is_epsilon() {
+                stack.push((&e.cont, path.clone(), g));
             } else if path.len() < max_morphs {
                 let mut p = path.clone();
                 p.push(e);
-                stack.push((&e.cont, p));
+                g.push((e.lemma.clone(), e.tag.clone()));
+                stack.push((&e.cont, p, g));
             }
         }
     }

@@ -51,16 +51,25 @@ pub struct SpecEntry {
     /// Lexical template; empty string = epsilon (written `0`).
     pub surface: String,
     pub lemma: String,
+    /// Empty for a plain epsilon; set for a zero morpheme (`0 TAG Cont ;`).
     pub tag: String,
     /// Continuation lexicon name, or `#` for end-of-word.
     pub cont: String,
     pub flags: Vec<String>,
+    /// Tags of the zero morphemes that follow this one (set when zeros are
+    /// folded into the morpheme before them; see [`crate::spec::zeros`]).
+    pub zeros: Vec<String>,
     pub line: usize,
 }
 
 impl SpecEntry {
+    /// Empty surface: a plain epsilon or a zero morpheme.
     pub fn is_epsilon(&self) -> bool {
         self.surface.is_empty()
+    }
+    /// A zero morpheme: empty surface with a tag.
+    pub fn is_zero(&self) -> bool {
+        self.surface.is_empty() && !self.tag.is_empty()
     }
 }
 

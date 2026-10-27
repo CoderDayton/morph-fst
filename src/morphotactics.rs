@@ -21,6 +21,7 @@
 use crate::codec::{Reader, Writer};
 use crate::error::{art_err, Result};
 use crate::normalize::NormOptions;
+use crate::shapes::{self, Shape};
 use crate::spec::{CaseMode, ClassId, Filter, FilterKind, Grammar, Tracker, END};
 
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -40,6 +41,8 @@ pub struct EntryRt {
     pub surface: String,
     pub lemma: String,
     pub tag: String,
+    /// Tags of the zero morphemes that follow this one.
+    pub zeros: Vec<String>,
 }
 
 /// A compiled register automaton (one direction).
@@ -222,6 +225,12 @@ pub struct Morphotactics {
     pin_feats: Vec<(String, Vec<String>)>,
     rpin_feats: Vec<(String, Vec<String>)>,
     pub norm: NormOptions,
+    /// Stem shapes of the open lexicons, sorted by surface (hybrid mode).
+    pub shapes: Vec<Shape>,
+    /// Entry ids grouped by lexicon in ascending order (derived).
+    lex_sorted: bool,
+    /// Lexicon of each entry, compact for binary searches (derived).
+    lex_of: Vec<ClassId>,
 }
 
 fn bits(n: usize) -> u32 {
@@ -415,6 +424,7 @@ impl Morphotactics {
                     surface: e.surface.clone(),
                     lemma: e.lemma.clone(),
                     tag: e.tag.clone(),
+                    zeros: e.zeros.clone(),
                 })
                 .collect(),
             filters: g.filters.clone(),
@@ -470,6 +480,9 @@ impl Morphotactics {
                 apostrophe_in_words: g.options.apostrophe_in_words,
                 strip_tones: g.options.strip_tones,
             },
+            shapes: Vec::new(),
+            lex_sorted: false,
+            lex_of: Vec::new(),
         };
         mt.derive();
         mt.start = mt.closure(mt.state(g.root, 0, 0)).collect();
@@ -483,6 +496,7 @@ impl Morphotactics {
             mt.wild_pool.extend(out);
             mt.wild_off.push(mt.wild_pool.len() as u32);
         }
+        mt.shapes = shapes::derive(g);
         mt
     }
 
@@ -490,6 +504,8 @@ impl Morphotactics {
     // (lb), right pins (rb), left pins (pb), filter (fb), class. In surface
     // mode qb = lb = 0, so numbering is exactly the old (class|filter|pin|rpin).
     fn derive(&mut self) {
+        self.lex_of = self.entries.iter().map(|e| e.lexicon).collect();
+        self.lex_sorted = self.lex_of.windows(2).all(|w| w[0] <= w[1]);
         self.lsh = self.qb;
         self.rsh = self.qb + self.lb;
         self.psh = self.rsh + self.rb;
@@ -783,11 +799,22 @@ impl Morphotactics {
         }
     }
 
-    /// Whether [`Self::wildcard_into`] depends on the unknown span's text
-    /// (only in underlying-harmony mode); otherwise callers may reuse it.
-    #[inline]
-    pub fn wildcard_reads_span(&self) -> bool {
-        self.under
+    /// Positions in `payload` (sorted entry ids) of the entries of lexicon
+    /// `class`, when entry ids are grouped by lexicon (as compiled grammars
+    /// are); `None` otherwise.
+    pub fn lexicon_range(&self, payload: &[u32], class: ClassId) -> Option<std::ops::Range<usize>> {
+        if !self.lex_sorted {
+            return None;
+        }
+        let lex = |e: &u32| self.lex_of.get(*e as usize).copied().unwrap_or(ClassId::MAX);
+        Some(payload.partition_point(|e| lex(e) < class)..payload.partition_point(|e| lex(e) <= class))
+    }
+
+    /// May an unknown stem start in state `s` (open class whose filter
+    /// admits it)?
+    pub fn wildcard_allowed(&self, s: u32) -> bool {
+        let open = self.classes.get(self.class_of(s) as usize).is_some_and(|c| c.open_tag.is_some());
+        open && self.filters.get(self.filter_of(s) as usize).is_some_and(Filter::permits_unknown)
     }
 
     /// Exceptions an unknown stem carries between the state `before` it
@@ -849,6 +876,10 @@ impl Morphotactics {
             w.str(&e.surface);
             w.str(&e.lemma);
             w.str(&e.tag);
+            w.u32(e.zeros.len() as u32);
+            for z in &e.zeros {
+                w.str(z);
+            }
         }
         w.u32s(&self.cc_off);
         w.u32s(&self.cc_pool);
@@ -894,6 +925,7 @@ impl Morphotactics {
         w.u8(self.norm.hangul_jamo as u8);
         w.u8(self.norm.apostrophe_in_words as u8);
         w.u8(self.norm.strip_tones as u8);
+        shapes::write(&self.shapes, w);
     }
 
     pub fn read(r: &mut Reader) -> Result<Self> {
@@ -923,7 +955,7 @@ impl Morphotactics {
             }
             filters.push(Filter { kind, ids });
         }
-        let ne = r.count(32)?;
+        let ne = r.count(36)?;
         let mut entries = Vec::with_capacity(ne);
         for _ in 0..ne {
             let lexicon = r.u32()?;
@@ -934,13 +966,18 @@ impl Morphotactics {
             let surface = r.string()?;
             let lemma = r.string()?;
             let tag = r.string()?;
+            let nz = r.count(4)?;
+            let mut zeros = Vec::with_capacity(nz);
+            for _ in 0..nz {
+                zeros.push(r.string()?);
+            }
             if lexicon as usize >= nc || lexicon == END as u32 || cont as usize >= nc || filter as usize >= nf {
                 return art_err("entry references unknown class/filter");
             }
             if surface.is_empty() {
                 return art_err("entry with empty surface");
             }
-            entries.push(EntryRt { lexicon: lexicon as u16, cont: cont as u16, filter: filter as u16, lex_id, guard, surface, lemma, tag });
+            entries.push(EntryRt { lexicon: lexicon as u16, cont: cont as u16, filter: filter as u16, lex_id, guard, surface, lemma, tag, zeros });
         }
         let cc_off = r.u32s()?;
         let cc_pool = r.u32s()?;
@@ -998,6 +1035,7 @@ impl Morphotactics {
         let hangul_jamo = r.u8()? == 1;
         let apostrophe_in_words = r.u8()? == 1;
         let strip_tones = r.u8()? == 1;
+        let shapes = shapes::read(r, &classes, &entries)?;
 
         // ---- validation ----
         let max_pins = crate::spec::expand::MAX_PINS;
@@ -1135,6 +1173,9 @@ impl Morphotactics {
             pin_feats,
             rpin_feats,
             norm: NormOptions { case, hangul_jamo, apostrophe_in_words, strip_tones },
+            shapes,
+            lex_sorted: false,
+            lex_of: Vec::new(),
         };
         mt.derive();
         let valid = |s: &u32| {

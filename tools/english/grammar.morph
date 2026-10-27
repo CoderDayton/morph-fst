@@ -1,0 +1,429 @@
+! =====================================================================
+!  English grammar for morph-fst: the hand-written half of english.morph
+! ---------------------------------------------------------------------
+!  Affixes, spelling rules and function words. The open-class lexicon
+!  (nouns, verbs, adjectives, adverbs) and every irregular form are
+!  generated from ESDB by examples/build_english.rs at the GENERATED
+!  marker below; each word gets the class that reproduces its ESDB
+!  inflections. Regenerate data/english.morph after editing this file.
+!
+!  LEXICON Name [@open=TAG]        @open: hybrid mode may posit an
+!                                  unknown stem of this class (?TAG)
+!    surface[:lemma] TAG Cont [@flag ...] ;
+!    0 Cont ;                      epsilon continuation
+!    #                             end of word
+!  RULES   name: TARGET -> REPL / [C|V|^] _ +{next,...} [@flag] ;
+!          TARGET `.` = any last char; REPL `0` = delete, `$` = target
+!  PIECES  extra WordPiece units (##x = word-internal)
+!  Comments start with `!`.
+! =====================================================================
+
+OPTION max_morph_chars 48
+
+LEXICON Root
+  0 Prefixes ;
+  0 Stems ;
+  0 Closed ;
+  0 Irregular ;
+  0 Adverbs ;
+
+LEXICON Stems
+  0 NounStems ;
+  0 VerbStems ;
+  0 AdjStems ;
+
+! ---------------------------------------------------------------------
+!  Derivational prefixes
+! ---------------------------------------------------------------------
+LEXICON Prefixes
+  un     PFX:NEG      AdjStems ;
+  un     PFX:REV      VerbStems ;
+  in     PFX:NEG      AdjStems ;
+  im     PFX:NEG      AdjStems ;
+  non    PFX:NEG      AdjStems ;
+  non    PFX:NEG      NounStems ;
+  re     PFX:AGAIN    VerbStems ;
+  dis    PFX:NEG      VerbStems ;
+  mis    PFX:WRONG    VerbStems ;
+  pre    PFX:BEFORE   VerbStems ;
+  over   PFX:EXCESS   VerbStems ;
+  under  PFX:INSUFF   VerbStems ;
+  out    PFX:SURPASS  VerbStems ;
+  co     PFX:JOINT    VerbStems ;
+  anti   PFX:AGAINST  NounStems ;
+  super  PFX:ABOVE    NounStems ;
+  sub    PFX:BELOW    NounStems ;
+  inter  PFX:BETWEEN  NounStems ;
+  micro  PFX:SMALL    NounStems ;
+  self   PFX:SELF     NounStems ;
+
+! ---------------------------------------------------------------------
+!  Function words
+! ---------------------------------------------------------------------
+LEXICON Closed
+  the          DET    # ;
+  a            DET    # ;
+  an           DET    # ;
+  this         DET    # ;
+  that         DET    # ;
+  these        DET    # ;
+  those        DET    # ;
+  some         DET    # ;
+  any          DET    # ;
+  every        DET    # ;
+  each         DET    # ;
+  no           DET    # ;
+  all          DET    # ;
+  both         DET    # ;
+  either       DET    # ;
+  neither      DET    # ;
+  few          DET    # ;
+  several      DET    # ;
+  such         DET    # ;
+  what         DET    # ;
+  which        DET    # ;
+  whose        DET    # ;
+  another      DET    # ;
+  much         DET    # ;
+  many         DET    # ;
+  i            PRON   # ;
+  me           PRON   # ;
+  my           PRON   # ;
+  mine         PRON   # ;
+  myself       PRON   # ;
+  you          PRON   # ;
+  your         PRON   # ;
+  yours        PRON   # ;
+  yourself     PRON   # ;
+  yourselves   PRON   # ;
+  he           PRON   # ;
+  him          PRON   # ;
+  his          PRON   # ;
+  himself      PRON   # ;
+  she          PRON   # ;
+  her          PRON   # ;
+  hers         PRON   # ;
+  herself      PRON   # ;
+  it           PRON   # ;
+  its          PRON   # ;
+  itself       PRON   # ;
+  we           PRON   # ;
+  us           PRON   # ;
+  our          PRON   # ;
+  ours         PRON   # ;
+  ourselves    PRON   # ;
+  they         PRON   # ;
+  them         PRON   # ;
+  their        PRON   # ;
+  theirs       PRON   # ;
+  themselves   PRON   # ;
+  who          PRON   # ;
+  whom         PRON   # ;
+  one          PRON   # ;
+  someone      PRON   # ;
+  somebody     PRON   # ;
+  something    PRON   # ;
+  anyone       PRON   # ;
+  anybody      PRON   # ;
+  anything     PRON   # ;
+  everyone     PRON   # ;
+  everybody    PRON   # ;
+  everything   PRON   # ;
+  nobody       PRON   # ;
+  nothing      PRON   # ;
+  none         PRON   # ;
+  of           PREP   # ;
+  to           PREP   # ;
+  in           PREP   # ;
+  on           PREP   # ;
+  at           PREP   # ;
+  with         PREP   # ;
+  for          PREP   # ;
+  from         PREP   # ;
+  by           PREP   # ;
+  about        PREP   # ;
+  above        PREP   # ;
+  across       PREP   # ;
+  after        PREP   # ;
+  against      PREP   # ;
+  along        PREP   # ;
+  among        PREP   # ;
+  around       PREP   # ;
+  before       PREP   # ;
+  behind       PREP   # ;
+  below        PREP   # ;
+  beneath      PREP   # ;
+  beside       PREP   # ;
+  besides      PREP   # ;
+  between      PREP   # ;
+  beyond       PREP   # ;
+  despite      PREP   # ;
+  down         PREP   # ;
+  during       PREP   # ;
+  except       PREP   # ;
+  inside       PREP   # ;
+  into         PREP   # ;
+  like         PREP   # ;
+  near         PREP   # ;
+  off          PREP   # ;
+  onto         PREP   # ;
+  opposite     PREP   # ;
+  outside      PREP   # ;
+  over         PREP   # ;
+  past         PREP   # ;
+  per          PREP   # ;
+  round        PREP   # ;
+  since        PREP   # ;
+  than         PREP   # ;
+  through      PREP   # ;
+  throughout   PREP   # ;
+  toward       PREP   # ;
+  towards      PREP   # ;
+  under        PREP   # ;
+  underneath   PREP   # ;
+  unlike       PREP   # ;
+  until        PREP   # ;
+  up           PREP   # ;
+  upon         PREP   # ;
+  via          PREP   # ;
+  within       PREP   # ;
+  without      PREP   # ;
+  and          CONJ   # ;
+  or           CONJ   # ;
+  but          CONJ   # ;
+  nor          CONJ   # ;
+  so           CONJ   # ;
+  yet          CONJ   # ;
+  because      CONJ   # ;
+  although     CONJ   # ;
+  though       CONJ   # ;
+  unless       CONJ   # ;
+  whereas      CONJ   # ;
+  whether      CONJ   # ;
+  while        CONJ   # ;
+  if           CONJ   # ;
+  not          ADV    # ;
+  never        ADV    # ;
+  always       ADV    # ;
+  often        ADV    # ;
+  sometimes    ADV    # ;
+  usually      ADV    # ;
+  seldom       ADV    # ;
+  rarely       ADV    # ;
+  ever         ADV    # ;
+  already      ADV    # ;
+  also         ADV    # ;
+  too          ADV    # ;
+  very         ADV    # ;
+  quite        ADV    # ;
+  rather       ADV    # ;
+  almost       ADV    # ;
+  just         ADV    # ;
+  only         ADV    # ;
+  even         ADV    # ;
+  still        ADV    # ;
+  again        ADV    # ;
+  here         ADV    # ;
+  there        ADV    # ;
+  now          ADV    # ;
+  then         ADV    # ;
+  today        ADV    # ;
+  tomorrow     ADV    # ;
+  yesterday    ADV    # ;
+  soon         ADV    # ;
+  later        ADV    # ;
+  where        ADV    # ;
+  when         ADV    # ;
+  why          ADV    # ;
+  how          ADV    # ;
+  yes          ADV    # ;
+  no           ADV    # ;
+  perhaps      ADV    # ;
+  maybe        ADV    # ;
+  else         ADV    # ;
+  once         ADV    # ;
+  twice        ADV    # ;
+  zero         NUM    # ;
+  two          NUM    # ;
+  three        NUM    # ;
+  four         NUM    # ;
+  five         NUM    # ;
+  six          NUM    # ;
+  seven        NUM    # ;
+  eight        NUM    # ;
+  nine         NUM    # ;
+  ten          NUM    # ;
+  eleven       NUM    # ;
+  twelve       NUM    # ;
+  thirteen     NUM    # ;
+  fourteen     NUM    # ;
+  fifteen      NUM    # ;
+  sixteen      NUM    # ;
+  seventeen    NUM    # ;
+  eighteen     NUM    # ;
+  nineteen     NUM    # ;
+  twenty       NUM    # ;
+  thirty       NUM    # ;
+  forty        NUM    # ;
+  fifty        NUM    # ;
+  sixty        NUM    # ;
+  seventy      NUM    # ;
+  eighty       NUM    # ;
+  ninety       NUM    # ;
+  hundred      NUM    # ;
+  thousand     NUM    # ;
+  million      NUM    # ;
+  billion      NUM    # ;
+  first        NUM    # ;
+  second       NUM    # ;
+  third        NUM    # ;
+  can          MOD    # ;
+  could        MOD    # ;
+  will         MOD    # ;
+  would        MOD    # ;
+  shall        MOD    # ;
+  should       MOD    # ;
+  may          MOD    # ;
+  might        MOD    # ;
+  must         MOD    # ;
+  ought        MOD    # ;
+  be           V      # ;
+  am:be        V+PRES # ;
+  are:be       V+PRES # ;
+  is:be        V+3SG  # ;
+  was:be       V+PAST # ;
+  were:be      V+PAST # ;
+  been:be      V+PTCP # ;
+  being:be     V+PROG # ;
+  well:good    ADV    # ;
+
+!@GENERATED
+
+! ---------------------------------------------------------------------
+!  Noun inflection and derivation
+! ---------------------------------------------------------------------
+LEXICON NounCont
+  0 NounInfl ;
+  0 NounDeriv ;
+
+! plural listed whole in Closed (men, feet, sheep)
+LEXICON NounNoPl
+  0 # ;
+  0 NounDeriv ;
+
+LEXICON NounInfl
+  s     PL           # ;
+  0 # ;
+
+LEXICON NounDeriv
+  ful   ADJZ:FULL    AdjDerivInfl ;
+  less  ADJZ:LESS    AdjDerivInfl ;
+  y     ADJZ:Y       AdjInfl ;
+  ly    ADJZ:LY      AdjInfl ;
+  al    ADJZ:AL      AdjDerivInfl ;
+  ish   ADJZ:ISH     AdjDerivInfl ;
+  ous   ADJZ:OUS     AdjDerivInfl ;
+  hood  NMLZ:STATE   NounInfl ;
+  ship  NMLZ:STATE   NounInfl ;
+  ism   NMLZ:ISM     NounInfl ;
+  ist   NMLZ:IST     NounInfl ;
+  ize   VBZ:IZE      VerbInfl ;
+
+! ---------------------------------------------------------------------
+!  Verb inflection and derivation
+! ---------------------------------------------------------------------
+LEXICON VerbInfl
+  s     3SG          # ;
+  ed    PAST         # ;
+  ed    PTCP         # ;
+  ing   PROG         # ;
+  ing   NMLZ:ING     NounInfl ;
+  er    AGENT        AgentCont ;
+  0 # ;
+
+! irregular past and participle are listed in Closed: no regular -ed
+LEXICON VerbIrr
+  s     3SG          # ;
+  ing   PROG         # ;
+  ing   NMLZ:ING     NounInfl ;
+  er    AGENT        AgentCont ;
+  0 # ;
+
+LEXICON VerbAble
+  0 VerbInfl ;
+  able  ABLE         AdjDerivInfl ;
+
+LEXICON VerbMent
+  0 VerbAble ;
+  ment  NMLZ         NounInfl ;
+
+LEXICON VerbIon
+  0 VerbAble ;
+  ion   NMLZ         NounInfl ;
+  ive   ADJZ:IVE     AdjDerivInfl ;
+
+LEXICON VerbAtion
+  0 VerbAble ;
+  ation NMLZ         NounInfl ;
+
+LEXICON AgentCont
+  0 NounInfl ;
+  ship  NMLZ:STATE   NounInfl ;
+
+! ---------------------------------------------------------------------
+!  Adjective inflection and derivation
+! ---------------------------------------------------------------------
+LEXICON AdjInfl
+  er    CMP          # ;
+  est   SUP          # ;
+  ly    ADV          # ;
+  ness  NMLZ         NounInfl ;
+  0 # ;
+
+LEXICON AdjEn
+  0 AdjInfl ;
+  en    VBZ          VerbInfl ;
+
+! long adjectives: more/most, no -er/-est
+LEXICON AdjDerivInfl
+  ly    ADV          # ;
+  ness  NMLZ         NounInfl ;
+  ity   NMLZ:ITY     NounInfl ;
+  ize   VBZ:IZE      VerbInfl ;
+  0 # ;
+
+! ---------------------------------------------------------------------
+!  Spelling rules (obligatory, compiled into allomorphs)
+! ---------------------------------------------------------------------
+RULES
+  y_to_i:  y  -> i    / C _ +{ness,ly,er,est,ful,ed,less,al,ment,ous,ist,ism} ;
+  y_ie:    y  -> ie   / C _ +{s} ;
+  y_sfx:   y  -> i    / ^ _ +{ness,ly,er,est} ;
+  e_del:   e  -> 0    / C _ +{ing,ed,er,est,able,ion,ive,y,al,en,ation,ity,ize,ish,ous,ist,ism} ;
+  e_ed:    e  -> 0    / V _ +{ed,er,est} ;
+  ue_u:    ue -> u    / _ +{ing,able,ly} ;
+  ie_y:    ie -> y    / _ +{ing} ;
+  le_ly:   le -> 0    / C _ +{ly} ;
+  le_il:   le -> il   / _ +{ity} ;
+  ic_al:   ic -> ical / _ +{ly} ;
+  double:  .  -> $$   / _ +{ing,ed,er,est,y,en,able} @double ;
+  c_ck:    c  -> ck   / _ +{ing,ed,er,y} @ck ;
+  x_es:    x  -> xe   / _ +{s} ;
+  z_es:    z  -> ze   / _ +{s} ;
+  ch_es:   ch -> che  / _ +{s} ;
+  sh_es:   sh -> she  / _ +{s} ;
+  ss_es:   ss -> sse  / _ +{s} ;
+  s_es:    s  -> se   / V _ +{s} ;
+  o_es:    o  -> oe   / C _ +{s} @oes ;
+  f_ves:   f  -> ve   / _ +{s} @ves ;
+  fe_ves:  fe -> ve   / _ +{s} @ves ;
+
+! ---------------------------------------------------------------------
+!  Extra subword pieces for the fallback layer
+! ---------------------------------------------------------------------
+PIECES
+  bl br cl cr dr fl fr gl gr pl pr sc sk sl sm sn sp st str sw tr th sh ch wh qu
+  ##th ##sh ##ch ##ck ##ng ##st ##nt ##rp ##rk ##ll ##ss ##tt
+  ##tastic ##ology ##ization ##ize ##ify ##esque ##ism ##ist ##ic ##ous ##tion
+  . , : ? ' " ( ) - /
+  0 1 2 3 4 5 6 7 8 9 ##0 ##1 ##2 ##3 ##4 ##5 ##6 ##7 ##8 ##9

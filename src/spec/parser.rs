@@ -190,6 +190,21 @@ fn parse_entry(body: &str, line: usize) -> Result<SpecEntry> {
                 tag: String::new(),
                 cont: toks[1].to_string(),
                 flags: vec![],
+                zeros: vec![],
+                line,
+            })
+        }
+        n if n >= 3 && toks[0] == "0" => {
+            if n > 3 {
+                return spec_err(line, "a zero morpheme is `0 TAG Cont ;` (no flags, no extra fields)");
+            }
+            Ok(SpecEntry {
+                surface: String::new(),
+                lemma: String::new(),
+                tag: toks[1].to_string(),
+                cont: toks[2].to_string(),
+                flags: vec![],
+                zeros: vec![],
                 line,
             })
         }
@@ -212,9 +227,9 @@ fn parse_entry(body: &str, line: usize) -> Result<SpecEntry> {
                     _ => return spec_err(line, format!("unexpected token `{f}` (flags start with @)")),
                 }
             }
-            Ok(SpecEntry { surface, lemma, tag: toks[1].to_string(), cont: toks[2].to_string(), flags, line })
+            Ok(SpecEntry { surface, lemma, tag: toks[1].to_string(), cont: toks[2].to_string(), flags, zeros: vec![], line })
         }
-        _ => spec_err(line, "expected `surface[:lemma] TAG Cont [@flag..] ;` or `0 Cont ;`"),
+        _ => spec_err(line, "expected `surface[:lemma] TAG Cont [@flag..] ;`, `0 TAG Cont ;` or `0 Cont ;`"),
     }
 }
 

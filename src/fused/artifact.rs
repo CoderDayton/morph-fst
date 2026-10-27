@@ -1,6 +1,6 @@
 //! The single fused artifact: morphotactics + unified trie, one file.
 
-use super::FusedLexer;
+use super::Lexer;
 use crate::codec::{self, Reader, Writer};
 use crate::error::{art_err, Result};
 use crate::morphotactics::Morphotactics;
@@ -8,7 +8,7 @@ use crate::subword::{WpTrie, ROOT_INIT};
 
 pub const MAGIC: &[u8; 4] = b"MCFU";
 
-impl FusedLexer {
+impl Lexer {
     /// Serialize the compiled lexer (load it back with [`Self::from_bytes`]
     /// to skip compilation).
     pub fn to_bytes(&self) -> Vec<u8> {
@@ -41,6 +41,6 @@ impl FusedLexer {
                 return art_err("entry not attached at its surface node");
             }
         }
-        Ok(FusedLexer { mt, trie })
+        Ok(Lexer { mt, trie })
     }
 }

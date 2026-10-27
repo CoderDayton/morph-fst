@@ -2,7 +2,7 @@
 
 use std::collections::{BTreeMap, BTreeSet};
 
-use super::FusedLexer;
+use super::Lexer;
 use crate::morphotactics::Morphotactics;
 use crate::spec::{self, ClassId, Grammar};
 use crate::subword::{closed_piece_set, PieceDef, TrieBuilder};
@@ -49,8 +49,8 @@ struct KeyAttrs {
     payload: Vec<u32>,
 }
 
-impl FusedLexer {
-    /// Spec text → fused lexer, in one pass.
+impl Lexer {
+    /// Compile `.morph` spec text.
     pub fn compile(spec_text: &str) -> crate::Result<Self> {
         Ok(Self::from_grammar(&spec::load(spec_text)?))
     }
@@ -64,6 +64,7 @@ impl FusedLexer {
     }
 
     /// Build from an already compiled [`Grammar`] (see [`spec::load`]).
+    #[doc(hidden)]
     pub fn from_grammar(g: &Grammar) -> Self {
         let mt = Morphotactics::from_grammar(g);
         // Unified key stream: (is_cont_root, key) -> {piece?, morpheme ids}.
@@ -81,6 +82,6 @@ impl FusedLexer {
             tb.add_key(key, *cont, a.piece, &a.payload);
         }
         // ... and ONE BFS (failure links, pops, CSR, payload packing).
-        FusedLexer { mt, trie: tb.finish() }
+        Lexer { mt, trie: tb.finish() }
     }
 }

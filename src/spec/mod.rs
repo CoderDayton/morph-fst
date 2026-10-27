@@ -7,6 +7,7 @@
 pub mod ast;
 pub mod expand;
 pub mod parser;
+pub mod zeros;
 
 pub use ast::*;
 pub use expand::{compile_grammar, ClassId, Entry, Filter, FilterKind, Grammar, Tracker, END};

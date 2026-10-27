@@ -2,7 +2,8 @@
 //! and byte-level fingerprints of everything that must not change.
 //! usage: cargo run --release --example regress -- <outdir> [reps]
 use morph_fst::codec::{fnv1a64, Writer};
-use morph_fst::fused::{derive_vocab, FusedLexer, Mode};
+use morph_fst::fused::derive_vocab;
+use morph_fst::{Lexer, Mode};
 use morph_fst::rng::Rng;
 use morph_fst::{oracle, spec, WordOutput};
 use std::time::Instant;
@@ -36,7 +37,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         }
     };
     let g = spec::load(src)?;
-    let fused = FusedLexer::compile(src)?;
+    let fused = Lexer::compile(src)?;
 
     // ---- fingerprints ----
     let mut dump = String::new();

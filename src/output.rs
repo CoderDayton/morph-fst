@@ -14,6 +14,13 @@ pub struct Morph {
     pub tag: String,
 }
 
+impl Morph {
+    /// A zero morpheme at byte offset `at`: empty surface and lemma.
+    pub fn zero(at: usize, tag: &str) -> Self {
+        Morph { start: at, end: at, surface: String::new(), lemma: String::new(), tag: tag.to_string() }
+    }
+}
+
 pub type Analysis = Vec<Morph>;
 
 #[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
@@ -38,7 +45,8 @@ impl fmt::Display for SubToken {
 pub enum Segment {
     Morph(Morph),
     /// Hybrid mode: an unknown stem of an open class, split into pieces.
-    Unknown { start: usize, end: usize, surface: String, guess: String, pieces: Vec<SubToken> },
+    /// `lemma` undoes spelling changes as known stems with that ending do.
+    Unknown { start: usize, end: usize, surface: String, lemma: String, guess: String, pieces: Vec<SubToken> },
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -47,8 +55,9 @@ pub enum WordOutput {
     Analyzed { best: Analysis, all: Vec<Analysis> },
     /// FST rejected the word; deterministic subword split.
     Fallback(Vec<SubToken>),
-    /// Hybrid mode: known affixes around one unknown stem.
-    Hybrid { segments: Vec<Segment>, unknown_chars: u32 },
+    /// Hybrid mode: `all` holds every reading best first (`segments` = `all[0]`);
+    /// `unknown_chars`: stem chars of the best reading no known ending explains.
+    Hybrid { segments: Vec<Segment>, all: Vec<Vec<Segment>>, unknown_chars: u32 },
 }
 
 /// `lemma<TAG>+lemma<TAG>` (Hangul jamo recomposed for display).
@@ -56,9 +65,10 @@ pub fn analysis_string(a: &Analysis) -> String {
     a.iter().map(|m| format!("{}<{}>", disp(&m.lemma), m.tag)).collect::<Vec<_>>().join("+")
 }
 
-/// `surf|surf` (Hangul jamo recomposed per morpheme for display).
+/// `surf|surf` (Hangul jamo recomposed per morpheme for display). Zero
+/// morphemes have no surface and are left out.
 pub fn segmentation(a: &Analysis) -> String {
-    a.iter().map(|m| disp(&m.surface).into_owned()).collect::<Vec<_>>().join("|")
+    a.iter().filter(|m| !m.surface.is_empty()).map(|m| disp(&m.surface).into_owned()).collect::<Vec<_>>().join("|")
 }
 
 pub fn pieces_string(p: &[SubToken]) -> String {
@@ -120,8 +130,9 @@ impl WordOutput {
                 .iter()
                 .map(|s| match s {
                     Segment::Morph(m) => format!("{}<{}>", disp(&m.lemma), m.tag),
-                    Segment::Unknown { surface, guess, pieces, .. } => {
-                        format!("⟨{}⟩<?{guess}>{{{}}}", disp(surface), pieces_string(pieces))
+                    Segment::Unknown { surface, lemma, guess, pieces, .. } => {
+                        let stem = if lemma == surface { disp(surface).into_owned() } else { format!("{}→{}", disp(surface), disp(lemma)) };
+                        format!("⟨{stem}⟩<?{guess}>{{{}}}", pieces_string(pieces))
                     }
                 })
                 .collect::<Vec<_>>()

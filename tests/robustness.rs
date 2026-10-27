@@ -2,10 +2,10 @@
 
 mod common;
 use common::TestResult;
-use morph_fst::fused::{FusedLexer, Mode};
+use morph_fst::{Lexer, Mode};
 use morph_fst::output::{reconstruct, Segment, WordOutput};
 use morph_fst::rng::Rng;
-use morph_fst::{spec, WordLexer};
+use morph_fst::spec;
 
 fn surface_bytes(out: &WordOutput) -> Vec<u8> {
     match out {
@@ -54,25 +54,25 @@ fn megabyte_word() -> TestResult {
     let p = f.trie.tokenize_counted(&w, &mut steps);
     assert!(steps <= 2 * w.len() as u64);
     assert_eq!(reconstruct(&p), w.as_bytes());
-    assert_eq!(f.lex_word(&w), WordOutput::Fallback(p));
+    assert_eq!(f.lex(&w, Mode::Strict), WordOutput::Fallback(p));
     let emoji = "😀".repeat(250_000);
-    assert_eq!(surface_bytes(&f.lex_word(&emoji)), emoji.as_bytes());
+    assert_eq!(surface_bytes(&f.lex(&emoji, Mode::Strict)), emoji.as_bytes());
     Ok(())
 }
 
 #[test]
 fn builds_are_byte_deterministic() -> TestResult {
-    assert_eq!(FusedLexer::compile(common::SPEC)?.to_bytes(), FusedLexer::compile(common::SPEC)?.to_bytes());
+    assert_eq!(Lexer::compile(common::SPEC)?.to_bytes(), Lexer::compile(common::SPEC)?.to_bytes());
     Ok(())
 }
 
 #[test]
 fn artifacts_round_trip() -> TestResult {
     let f = common::fused()?;
-    let f2 = FusedLexer::from_bytes(&f.to_bytes())?;
+    let f2 = Lexer::from_bytes(&f.to_bytes())?;
     assert_eq!(f, f2);
     for w in ["unhappiness", "unhappyness", "walks", "😀", ""] {
-        assert_eq!(f.lex_word(w), f2.lex_word(w));
+        assert_eq!(f.lex(w, Mode::Strict), f2.lex(w, Mode::Strict));
     }
     Ok(())
 }
@@ -87,13 +87,13 @@ fn corrupt_artifacts_are_errors_not_panics() -> TestResult {
         let k = rng.below(flipped.len());
         flipped[k] ^= 1 << rng.below(8);
         for bad in [&data[..cut], &flipped[..]] {
-            assert!(FusedLexer::from_bytes(bad).is_err());
+            assert!(Lexer::from_bytes(bad).is_err());
         }
     }
-    assert!(FusedLexer::from_bytes(&[]).is_err());
+    assert!(Lexer::from_bytes(&[]).is_err());
     let mut foreign = data.clone();
     foreign[..4].copy_from_slice(b"XXXX");
-    assert!(FusedLexer::from_bytes(&foreign).is_err()); // wrong magic
+    assert!(Lexer::from_bytes(&foreign).is_err()); // wrong magic
     Ok(())
 }
 
@@ -112,7 +112,8 @@ fn bad_specs_are_errors() {
         ("LEXICON Root\n 0 A ;\nLEXICON A\n 0 Root ;", "epsilon cycle"),
         ("LEXICON Root\n cat N Nope ;", "unknown continuation"),
         ("LEXICON Root\n cat N #", "must end with"),
-        ("LEXICON Root\n 0 X Y # ;", "non-epsilon entry"),
+        ("LEXICON Root\n 0 X Y # ;", "zero morpheme is"),
+        ("LEXICON Root\n :x N # ;", "non-epsilon entry"),
         ("LEXICON Root\n cat # ;", "two-field"),
         ("LEXICON Root\n x{A} N S ;\nLEXICON S\n s P # ;\nRULES\n r1: x -> y / _ [*] +{s} ;\nFEATURE f\n a -> b\nARCHI A\n * -> a", "before an archiphoneme"),
         ("LEXICON Root\n x{Q} N # ;", "unknown archiphoneme"),

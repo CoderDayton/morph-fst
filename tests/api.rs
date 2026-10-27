@@ -85,10 +85,11 @@ fn fallback_is_lossless_and_hybrid_finds_affixes() -> TestResult {
             }
         }
     }
-    match lx.lex("blorfing", Mode::Hybrid) {
-        WordOutput::Hybrid { segments, unknown_chars } => {
-            assert_eq!(unknown_chars, 5);
-            assert!(matches!(&segments[0], Segment::Unknown { surface, guess, .. } if surface == "blorf" && guess == "V"));
+    // A verb like absorb: the known verbs share its ending `-orb`.
+    match lx.lex("glorbing", Mode::Hybrid) {
+        WordOutput::Hybrid { segments, unknown_chars, .. } => {
+            assert_eq!(unknown_chars, 2);
+            assert!(matches!(&segments[0], Segment::Unknown { surface, guess, .. } if surface == "glorb" && guess == "V"));
             assert!(matches!(&segments[1], Segment::Morph(m) if m.tag == "PROG"));
         }
         other => panic!("{other:?}"),
@@ -100,14 +101,14 @@ fn fallback_is_lossless_and_hybrid_finds_affixes() -> TestResult {
 
 #[test]
 fn running_text_is_normalized_per_language() -> TestResult {
+    let words = |lx: &Lexer, text: &str| -> Vec<String> { lx.lex_text(text, Mode::Strict).into_iter().map(|(w, _)| w).collect() };
     let tr = Lexer::bundled("turkish")?;
     // Turkish casing: I → ı, İ → i
-    assert_eq!(tr.normalize("IŞIK İzmir"), "ışık izmir");
-    let words: Vec<String> = tr.lex_text("Evlerde, SAATLER!", Mode::Strict).into_iter().map(|(w, _)| w).collect();
-    assert_eq!(words, ["evlerde", ",", "saatler", "!"]); // punctuation is kept
+    assert_eq!(words(&tr, "IŞIK İzmir"), ["ışık", "izmir"]);
+    assert_eq!(words(&tr, "Evlerde, SAATLER!"), ["evlerde", ",", "saatler", "!"]); // punctuation is kept
     // Igbo: tone marks are stripped, dot-below kept
     let ig = Lexer::bundled("igbo")?;
-    assert_eq!(ig.normalize("Ị́ga"), "ịga");
+    assert_eq!(words(&ig, "Ị́ga"), ["ịga"]);
     Ok(())
 }
 

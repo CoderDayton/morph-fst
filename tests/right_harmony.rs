@@ -3,13 +3,13 @@
 //! Synthetic toy specs stress the mechanism; the independent oracle is
 //! checked on all of them.
 
-use morph_fst::fused::{derive_vocab, FusedLexer, Mode};
+use morph_fst::fused::derive_vocab;
+use morph_fst::{Lexer, Mode};
 use morph_fst::normalize::normalize;
 use morph_fst::oracle::{self, Gloss};
 use morph_fst::output::{analysis_string, WordOutput};
 use morph_fst::rng::Rng;
 use morph_fst::spec::{self, parse_spec};
-use morph_fst::WordLexer;
 use std::collections::BTreeSet;
 
 type TestResult = Result<(), Box<dyn std::error::Error>>;
@@ -170,12 +170,12 @@ LEXICON Sfx
   s{O}  X  # ;
 "#;
 
-fn lexer(text: &str) -> morph_fst::Result<FusedLexer> {
-    FusedLexer::compile(text)
+fn lexer(text: &str) -> morph_fst::Result<Lexer> {
+    Lexer::compile(text)
 }
 
-fn accepts(f: &FusedLexer, w: &str) -> bool {
-    matches!(f.lex_word(w), WordOutput::Analyzed { .. })
+fn accepts(f: &Lexer, w: &str) -> bool {
+    matches!(f.lex(w, Mode::Strict), WordOutput::Analyzed { .. })
 }
 
 fn check_sets(text: &str, yes: &[&str], no: &[&str]) -> TestResult {
@@ -217,7 +217,7 @@ fn right_and_left_pins() -> TestResult {
     // Guessed right pins never duplicate an analysis.
     let f = lexer(PINS)?;
     for w in ["pil", "bapil", "badapil", "bapilno", "bedetik", "tokno"] {
-        match f.lex_word(w) {
+        match f.lex(w, Mode::Strict) {
             WordOutput::Analyzed { all, .. } => {
                 let set: BTreeSet<String> = all.iter().map(analysis_string).collect();
                 assert_eq!(set.len(), all.len(), "{w}: duplicate analyses {all:?}");
@@ -303,7 +303,7 @@ fn igbo_golden() -> TestResult {
         ("agaghị", "E<NEG.IND>+ga<V:go>+ghị<NEG>"),
     ];
     for (w, a) in cases {
-        match f.lex_word(w) {
+        match f.lex(w, Mode::Strict) {
             WordOutput::Analyzed { best, .. } => assert_eq!(analysis_string(&best), a, "{w}"),
             o => panic!("{w} not analyzed: {}", o.render()),
         }
@@ -318,7 +318,7 @@ fn igbo_golden() -> TestResult {
     for (raw, clean) in [("ị́ga", "ịga"), ("i\u{323}\u{301}ga", "ịga"), ("i\u{301}\u{323}ga", "ịga"), ("írí", "iri"), ("ṅụ̀rụ̀", "ṅụrụ")] {
         assert_eq!(normalize(raw, &f.mt.norm), clean, "{raw:?}");
     }
-    let out = morph_fst::lex_text(&f, "Ị́ga na-eri");
+    let out = f.lex_text("Ị́ga na-eri", Mode::Strict);
     assert_eq!(out[0].0, "ịga");
     assert!(matches!(out[0].1, WordOutput::Analyzed { .. }));
     Ok(())
@@ -380,19 +380,19 @@ fn hybrid_matches_strict_and_artifacts_round_trip() -> TestResult {
                 }
                 _ => (0..rng.below(10)).map(|_| *rng.pick(&alpha)).collect(),
             };
-            if matches!(f.lex_word(&w), WordOutput::Analyzed { .. }) {
-                assert_eq!(f.lex(&w, Mode::Hybrid), f.lex_word(&w), "{w}");
+            if matches!(f.lex(&w, Mode::Strict), WordOutput::Analyzed { .. }) {
+                assert_eq!(f.lex(&w, Mode::Hybrid), f.lex(&w, Mode::Strict), "{w}");
             }
         }
         let bytes = f.to_bytes();
-        assert_eq!(bytes, FusedLexer::compile(text)?.to_bytes());
-        assert_eq!(FusedLexer::from_bytes(&bytes)?, f);
+        assert_eq!(bytes, Lexer::compile(text)?.to_bytes());
+        assert_eq!(Lexer::from_bytes(&bytes)?, f);
         for _ in 0..80 {
             let mut bad = bytes.clone();
             let k = rng.below(bad.len());
             bad[k] ^= 1 << rng.below(8);
-            assert!(FusedLexer::from_bytes(&bad).is_err());
-            assert!(FusedLexer::from_bytes(&bytes[..rng.below(bytes.len())]).is_err());
+            assert!(Lexer::from_bytes(&bad).is_err());
+            assert!(Lexer::from_bytes(&bytes[..rng.below(bytes.len())]).is_err());
         }
     }
     Ok(())

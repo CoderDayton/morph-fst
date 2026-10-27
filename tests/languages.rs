@@ -2,13 +2,13 @@
 //! violations that must fall back, the independent oracle, hybrid ≡ strict
 //! on accepted words, and language-specific normalization.
 
-use morph_fst::fused::{derive_vocab, FusedLexer, Mode};
+use morph_fst::fused::derive_vocab;
+use morph_fst::{Lexer, Mode};
 use morph_fst::normalize::{compose_hangul, normalize};
 use morph_fst::oracle::{self, Gloss};
 use morph_fst::output::{analysis_string, segmentation, WordOutput};
 use morph_fst::rng::Rng;
 use morph_fst::spec::{self, parse_spec};
-use morph_fst::{lex_text, WordLexer};
 use std::collections::BTreeSet;
 
 type TestResult = Result<(), Box<dyn std::error::Error>>;
@@ -24,8 +24,8 @@ fn src(lang: &str) -> Result<&'static str, String> {
     LANGS.iter().find(|(l, _)| *l == lang).map(|(_, s)| *s).ok_or(format!("no spec for {lang}"))
 }
 
-fn lexer(lang: &str) -> Result<FusedLexer, Box<dyn std::error::Error>> {
-    Ok(FusedLexer::compile(src(lang)?)?)
+fn lexer(lang: &str) -> Result<Lexer, Box<dyn std::error::Error>> {
+    Ok(Lexer::compile(src(lang)?)?)
 }
 
 /// (word, expected best analysis, expected segmentation)
@@ -33,7 +33,7 @@ fn check_golden(lang: &str, cases: &[(&str, &str, &str)], rejects: &[&str]) -> T
     let f = lexer(lang)?;
     for &(w, a, seg) in cases {
         let w = normalize(w, &f.mt.norm);
-        match f.lex_word(&w) {
+        match f.lex(&w, Mode::Strict) {
             WordOutput::Analyzed { best, .. } => {
                 assert_eq!(analysis_string(&best), a, "{lang}: {}", compose_hangul(&w));
                 assert_eq!(segmentation(&best), seg, "{lang}: {}", compose_hangul(&w));
@@ -43,7 +43,7 @@ fn check_golden(lang: &str, cases: &[(&str, &str, &str)], rejects: &[&str]) -> T
     }
     for &w in rejects {
         let w = normalize(w, &f.mt.norm);
-        assert!(matches!(f.lex_word(&w), WordOutput::Fallback(_)), "{lang}: {} should fall back", compose_hangul(&w));
+        assert!(matches!(f.lex(&w, Mode::Strict), WordOutput::Fallback(_)), "{lang}: {} should fall back", compose_hangul(&w));
     }
     Ok(())
 }
@@ -89,7 +89,7 @@ fn turkish_golden() -> TestResult {
         ("gözlüğü", "göz<N>+lIk<ABST>+SI<P3SG>"),
         ("evleri", "ev<N>+lArI<P3PL>"),
     ] {
-        match f.lex_word(w) {
+        match f.lex(w, Mode::Strict) {
             WordOutput::Analyzed { all, .. } => {
                 assert!(all.iter().any(|x| analysis_string(x) == a), "{w}: {:?}", all.iter().map(analysis_string).collect::<Vec<_>>())
             }
@@ -200,10 +200,10 @@ fn korean_golden() -> TestResult {
     let f = lexer("korean")?;
     for w in ["봐요", "보아요", "마셔요", "마시어요", "돼요", "되어요", "줘요", "주어요"] {
         let w = normalize(w, &f.mt.norm);
-        assert!(matches!(f.lex_word(&w), WordOutput::Analyzed { .. }), "{}", compose_hangul(&w));
+        assert!(matches!(f.lex(&w, Mode::Strict), WordOutput::Analyzed { .. }), "{}", compose_hangul(&w));
     }
     // 사세요: 사다 'buy' and 살다 'live' (ㄹ-deletion) — genuine ambiguity
-    match f.lex_word(&normalize("사세요", &f.mt.norm)) {
+    match f.lex(&normalize("사세요", &f.mt.norm), Mode::Strict) {
         WordOutput::Analyzed { all, .. } => {
             let lemmas: BTreeSet<String> = all.iter().map(|a| compose_hangul(&a[0].lemma).into_owned()).collect();
             assert_eq!(lemmas, BTreeSet::from(["사".to_string(), "살".to_string()]));
@@ -276,7 +276,7 @@ fn hybrid_matches_strict_on_accepted_words() -> TestResult {
                 }
                 _ => (0..rng.below(14)).map(|_| *rng.pick(&alpha)).collect(),
             };
-            let strict = f.lex_word(&w);
+            let strict = f.lex(&w, Mode::Strict);
             if matches!(strict, WordOutput::Analyzed { .. }) {
                 assert_eq!(f.lex(&w, Mode::Hybrid), strict, "{lang}: {}", compose_hangul(&w));
             }
@@ -289,16 +289,16 @@ fn hybrid_matches_strict_on_accepted_words() -> TestResult {
 fn artifacts_round_trip_and_reject_corruption() -> TestResult {
     let mut rng = Rng::new(3);
     for (lang, text) in LANGS {
-        let f = FusedLexer::compile(text)?;
+        let f = Lexer::compile(text)?;
         let bytes = f.to_bytes();
-        assert_eq!(bytes, FusedLexer::compile(text)?.to_bytes(), "{lang}: non-deterministic build");
-        assert_eq!(FusedLexer::from_bytes(&bytes)?, f);
+        assert_eq!(bytes, Lexer::compile(text)?.to_bytes(), "{lang}: non-deterministic build");
+        assert_eq!(Lexer::from_bytes(&bytes)?, f);
         for _ in 0..100 {
             let mut bad = bytes.clone();
             let k = rng.below(bad.len());
             bad[k] ^= 1 << rng.below(8);
-            assert!(FusedLexer::from_bytes(&bad).is_err());
-            assert!(FusedLexer::from_bytes(&bytes[..rng.below(bytes.len())]).is_err());
+            assert!(Lexer::from_bytes(&bad).is_err());
+            assert!(Lexer::from_bytes(&bytes[..rng.below(bytes.len())]).is_err());
         }
     }
     Ok(())
@@ -308,23 +308,23 @@ fn artifacts_round_trip_and_reject_corruption() -> TestResult {
 fn normalization_per_language() -> TestResult {
     // Turkish casing: I → ı, İ → i
     let tr = lexer("turkish")?;
-    let out = lex_text(&tr, "EVLERİMİZDEN Kitapta");
+    let out = tr.lex_text("EVLERİMİZDEN Kitapta", Mode::Strict);
     assert_eq!(out[0].0, "evlerimizden");
     assert!(matches!(out[0].1, WordOutput::Analyzed { .. }));
     assert!(matches!(out[1].1, WordOutput::Analyzed { .. }));
     // Spanish: decomposed accent (o + U+0301) composes to ó
     let es = lexer("spanish")?;
-    let out = lex_text(&es, "Cancio\u{301}n canciones");
+    let out = es.lex_text("Cancio\u{301}n canciones", Mode::Strict);
     assert_eq!(out[0].0, "canción");
     assert!(out.iter().all(|(_, o)| matches!(o, WordOutput::Analyzed { .. })));
     // French: curly apostrophe kept inside the word
     let fr = lexer("french")?;
-    let out = lex_text(&fr, "L’homme mange.");
+    let out = fr.lex_text("L’homme mange.", Mode::Strict);
     assert_eq!(out[0].0, "l'homme");
     assert!(matches!(out[0].1, WordOutput::Analyzed { .. }));
     // Korean: syllables ↔ jamo round trip, words recompose for display
     let ko = lexer("korean")?;
-    let out = lex_text(&ko, "학생이 갔어요.");
+    let out = ko.lex_text("학생이 갔어요.", Mode::Strict);
     assert_eq!(compose_hangul(&out[0].0), "학생이");
     assert_eq!(compose_hangul(&out[1].0), "갔어요");
     assert!(matches!(out[1].1, WordOutput::Analyzed { .. }));
@@ -335,7 +335,7 @@ fn normalization_per_language() -> TestResult {
         let n = normalize(&s, &ko.mt.norm);
         assert_eq!(compose_hangul(&n), s);
         // lossless fallback over jamo
-        if let WordOutput::Fallback(p) = ko.lex_word(&n) {
+        if let WordOutput::Fallback(p) = ko.lex(&n, Mode::Strict) {
             assert_eq!(morph_fst::output::reconstruct(&p), n.as_bytes());
         }
     }

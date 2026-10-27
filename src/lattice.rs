@@ -51,7 +51,7 @@ impl<'a> LatticeBuilder<'a> {
         if mt.has_right_register() {
             mt.track_right(word, &mut rreg_at);
         }
-        LatticeBuilder { mt, states, edges: Vec::new(), reg_at, rreg_at, multi: Vec::new() }
+        LatticeBuilder { mt, states, edges: Vec::with_capacity(4 * word.len()), reg_at, rreg_at, multi: Vec::new() }
     }
 
     #[inline]
@@ -232,12 +232,13 @@ impl Lattice {
     }
 
     fn arcs_to_analysis(&self, mt: &Morphotactics, arcs: &[(u32, u32, u32)]) -> Analysis {
-        arcs.iter()
-            .map(|&(s, e, id)| {
-                let en = &mt.entries[id as usize];
-                Morph { start: s as usize, end: e as usize, surface: en.surface.clone(), lemma: en.lemma.clone(), tag: en.tag.clone() }
-            })
-            .collect()
+        let mut out = Vec::with_capacity(arcs.len());
+        for &(s, e, id) in arcs {
+            let en = &mt.entries[id as usize];
+            out.push(Morph { start: s as usize, end: e as usize, surface: en.surface.clone(), lemma: en.lemma.clone(), tag: en.tag.clone() });
+            out.extend(en.zeros.iter().map(|z| Morph::zero(e as usize, z)));
+        }
+        out
     }
 
     fn arc(&self, e: usize) -> (u32, u32, u32) {
