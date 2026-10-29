@@ -341,14 +341,14 @@ fn oracle_right_context() -> TestResult {
         let gen = oracle::generate(&parse_spec(text)?, depth, 1_000_000)?;
         let f = lexer(text)?;
         for (surface, want) in &gen.surfaces {
-            assert_eq!(&glosses(f.analyze(surface, 512), depth), want, "{name}: {surface}");
+            assert_eq!(&glosses(f.all_analyses(surface, 512), depth), want, "{name}: {surface}");
         }
         let mut neg = 0;
         for w in gen.naive.iter().chain(&gen.wrong_archi) {
             if gen.surfaces.contains_key(w) {
                 continue;
             }
-            assert!(glosses(f.analyze(w, 512), depth).is_empty(), "{name} accepted forbidden {w}");
+            assert!(glosses(f.all_analyses(w, 512), depth).is_empty(), "{name} accepted forbidden {w}");
             neg += 1;
         }
         eprintln!("{name}: {} surfaces, {neg} forbidden forms rejected", gen.surfaces.len());

@@ -435,7 +435,12 @@ impl Lexer {
         let w = self.word_context(text);
         let n = text.len() as u32;
         let cap = cap.max(1);
-        let mut chart = Chart { arena: Vec::new(), heap: BinaryHeap::new(), pops: HashMap::default(), k: cap };
+        let mut chart = Chart {
+            arena: Vec::with_capacity(1024),
+            heap: BinaryHeap::with_capacity(1024),
+            pops: HashMap::with_capacity_and_hasher(512, BuildHasherDefault::default()),
+            k: cap,
+        };
         for &s in mt.start_states() {
             chart.push(Deriv { cost: Cost::default(), prev: NONE, pos: 0, layer: 0, state: s, step: Step::Start });
         }

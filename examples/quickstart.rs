@@ -1,47 +1,33 @@
-//! Quickstart: compile a bundled language, lex some text, save the artifact.
+//! Quickstart: get a lexer, analyze text, save it.
 //!
 //!     cargo run --example quickstart
 
-use morph_fst::{Lexer, Mode, Segment, WordOutput};
+use morph_fst::{Kind, Lexer};
 
 fn main() -> morph_fst::Result<()> {
-    // 1. Compile a bundled spec (or `Lexer::compile(&your_spec_text)`).
     let lx = Lexer::bundled("turkish")?;
 
-    // 2. Lex running text. `lex_text` normalizes (Turkish casing: I → ı)
-    //    and splits words; each word gets one of three outputs.
-    for (word, out) in lx.lex_text("Kitaplarımızdan bloglarımda xqzv", Mode::Hybrid) {
-        match &out {
-            // Known word: a full morphological analysis.
-            WordOutput::Analyzed { best, all } => {
-                println!("{word}: analysed ({} reading(s))", all.len());
-                for m in best {
-                    println!("    {:<8} lemma={:<8} tag={}", m.surface, m.lemma, m.tag);
-                }
-            }
-            // Hybrid mode: known affixes around one unknown stem.
-            WordOutput::Hybrid { segments, .. } => {
-                println!("{word}: unknown stem + known affixes");
-                for s in segments {
-                    match s {
-                        Segment::Morph(m) => println!("    {:<8} tag={}", m.surface, m.tag),
-                        Segment::Unknown { surface, guess, .. } => println!("    {surface:<8} guess={guess}"),
-                    }
-                }
-            }
-            // Nothing fits: deterministic WordPiece split (never fails).
-            WordOutput::Fallback(_) => println!("{word}: subword fallback {:?}", out.tokens()),
+    // 2. Analyze running text. It is normalized (Turkish casing: I → ı)
+    //    and split into words first.
+    for word in lx.analyze_text("Kitaplarımızdan bloglarımda") {
+        let how = match word.kind() {
+            Kind::Known => "known",
+            Kind::Guessed => "unknown stem, known endings",
+            _ => "split into pieces",
+        };
+        println!("{}: {how}", word.text());
+        for part in word.parts() {
+            let mark = if part.is_known() { "" } else { " (guessed)" };
+            println!("    {:<8} lemma={:<8} tag={}{mark}", part.text(), part.lemma(), part.tag());
         }
     }
 
-    // 3. Flat tokens for a downstream model.
-    let toks: Vec<String> = lx.lex_text("evlerde", Mode::Strict).into_iter().flat_map(|(_, o)| o.tokens()).collect();
-    println!("tokens: {toks:?}");
+    println!("tokens: {:?}", lx.analyze("evlerde").tokens());
 
-    // 4. Ship the compiled lexer as one file; loading skips compilation.
-    let bytes = lx.to_bytes();
-    let again = Lexer::from_bytes(&bytes)?;
-    assert_eq!(again, lx);
-    println!("artifact: {} bytes", bytes.len());
+    // 4. Save the compiled lexer as one file; loading skips compilation.
+    let path = std::env::temp_dir().join("turkish.mcfu");
+    lx.save(&path)?;
+    assert_eq!(Lexer::load(&path)?, lx);
+    println!("saved to {}", path.display());
     Ok(())
 }

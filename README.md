@@ -1,6 +1,6 @@
 # morph-fst
 
-A rule-based **morphological analyzer** fused with a **deterministic subword fallback**, in Rust, with no dependencies.
+A rule-based **morphological analyzer** fused with a **deterministic subword fallback**, in Rust.
 
 You write a language's morphology once, as a plain-text `.morph` spec. The crate compiles it into one artifact that, for every word:
 
@@ -26,6 +26,8 @@ A plain lexical analyzer is a dictionary: it knows `walked = walk + PAST` becaus
 
 Use `Strict` when you want only analyses the grammar fully licenses; use `Hybrid` for open text, where new words are the norm.
 
+By default an unknown word is **guessed** (`Mode::Hybrid`, `Kind::Guessed`). `Mode::Strict` leaves it **unsplit** into subword pieces (`Kind::Unsplit`) instead.
+
 ## Install
 
 ```toml
@@ -33,41 +35,74 @@ Use `Strict` when you want only analyses the grammar fully licenses; use `Hybrid
 morph-fst = "0.1"
 ```
 
-The minimum supported Rust version is 1.82. The default build has **zero dependencies**.
+The minimum supported Rust version is 1.82. Dependencies are kept few and lightweight, and only where they beat writing the code here.
 
 ## Use
 
+Three steps: get a `Lexer`, `analyze` words, read the `Word`.
+
 ```rust
-use morph_fst::{Lexer, Mode, WordOutput};
+use morph_fst::{Kind, Lexer};
 
-let lx = Lexer::bundled("turkish")?;               // or Lexer::compile(&my_spec_text)?
+let lx = Lexer::bundled("turkish")?;                 // 1. get a lexer
 
-for (word, out) in lx.lex_text("Kitaplarımızdan bloglarımda", Mode::Hybrid) {
-    match out {
-        WordOutput::Analyzed { best, .. } => { /* best: Vec<Morph { surface, lemma, tag, start, end }> */ }
-        WordOutput::Hybrid { segments, all, .. } => { /* best reading, and every reading ranked */ }
-        WordOutput::Fallback(pieces) => { /* WordPiece split; concatenation == word */ }
+for word in lx.analyze_text("Kitaplarımızdan bloglarımda") {   // 2. analyze
+    println!("{:?}", word.kind());                   // Known | Guessed | Unsplit
+    for part in word.parts() {                       // 3. read it
+        println!("{} {} {}", part.text(), part.lemma(), part.tag());   // lAr  lar  PL
     }
 }
 
-// flat tokens for a downstream model
-let toks = lx.lex("evlerde", Mode::Strict).tokens();   // ["ev<N>", "lAr<PL>", "DA<LOC>"]
+lx.analyze("evlerde").tokens();                      // ["ev<N>", "lAr<PL>", "DA<LOC>"]
 
-// compile once, ship one file; loading validates every table
-let bytes = lx.to_bytes();
-let lx = Lexer::from_bytes(&bytes)?;
+lx.save("turkish.mcfu")?;                            // compile once, reuse the file
+let lx = Lexer::load("turkish.mcfu")?;
 ```
 
-- `Lexer` is the one entry point: build it (`bundled`, `compile`, `from_bytes`), then call `lex_text` or `lex`.
-- `lex_text` normalizes the text the way the language's spec says (Turkish `I→ı`, tone stripping, Hangul → jamo, …) and splits it into words.
-- `lex` takes a single word that is already normalized.
-- `all` in `WordOutput::Analyzed` and `WordOutput::Hybrid` holds every reading, best first.
+| You want | Call |
+|---|---|
+| A ready-made language | `Lexer::bundled("english")` |
+| Your own language | `Lexer::builder()`, see [Generating a language](#generating-a-language) |
+| One word | `lx.analyze(word)` |
+| Running text | `lx.analyze_text(text)`: normalized (Turkish `I→ı`, tone stripping, Hangul → jamo, …), split into words, and spread over all cores when long (each distinct word is lexed once) |
+| Skip the guessing | `Lexer::bundled("english")?.mode(Mode::Strict)` |
+| Everything about a word | `word.detail()`: byte spans, every reading, subword pieces |
+| Save and reload | `lx.save(path)`, `Lexer::load(path)` |
+
+A `Word` has `text()`, `kind()`, `parts()`, `alternatives()` (other readings, best first), `tokens()` and `Display`. A `Part` has `text()`, `lemma()`, `tag()` and `is_known()`. On 18k unseen English words, guessing takes 881 ms on one thread and 165 ms on 32 cores.
 
 Runnable examples:
 
 ```sh
 cargo run --example quickstart
 cargo run --example learn_exceptions
+```
+
+### Generating a language
+
+Give the builder whatever data exists, in any combination:
+
+```rust
+let lx = Lexer::builder()
+    .unimorph(&tables)    // lemma<TAB>form<TAB>FEATURES: features and lemmas (richest)
+    .words(&word_list)    // plain words: covers what the tables miss
+    .corpus(&raw_text)    // raw text: learns exceptions (a spec's INDUCE lines)
+    .build()?;            // or .spec(&text) instead of .unimorph(..) for a hand-written grammar
+```
+
+| You have | You get |
+|---|---|
+| UniMorph tables | stems, endings with features, lemmas, spelling-change variants |
+| A word list only | stems and endings (no features), found by [paradigm discovery](#discovering-a-grammar-from-a-word-list) |
+| Tables and a word list | the tables' grammar, plus paradigms discovered from the words the tables reject |
+| A spec | exactly your grammar; a word list or corpus adds to it |
+
+From the command line one command does it, including the download:
+
+```sh
+morph-fst new rus -o russian.mcfu                          # fetches UniMorph's Russian table
+morph-fst new rus -o russian.mcfu --wordlist words.txt     # plus your words
+morph-fst tokenize --fused russian.mcfu "я люблю читать книги"
 ```
 
 ### Command line
@@ -82,6 +117,8 @@ morph-fst build    my.morph -o my.mcfu  [--corpus text.txt]
 morph-fst tokenize --fused my.mcfu < input.txt
 morph-fst induce   my.morph text.txt -o my.learned.morph
 morph-fst generate unimorph.tsv -o draft.morph   # draft a spec from UniMorph tables
+morph-fst tokenize --unimorph rus.tsv --mode hybrid "я люблю читать книги"   # no spec at all
+morph-fst tokenize --wordlist words.txt --mode hybrid "some unseen words"      # not even tables
 morph-fst dump-expanded turkish        # every concrete allomorph + when it applies
 morph-fst bench turkish
 ```
@@ -105,7 +142,7 @@ l'homme          FST  le<DET>+homme<N>                         [l'|homme]
 
 | Feature | What it adds |
 |---|---|
-| *(default)* | `Lexer`, the spec compiler, exception learning, bundled languages. No dependencies. |
+| *(default)* | `Lexer`, the spec compiler, exception learning, bundled languages. |
 | `cli` | The `morph-fst` binary. |
 
 ## Why one lexer
@@ -281,6 +318,8 @@ Specs are written by hand, but [UniMorph](https://unimorph.github.io) tables (`l
 morph-fst generate spa.tsv -o spanish-draft.morph
 ```
 
+To skip the spec file, use `Lexer::builder().unimorph(&tsv)` or `morph-fst new <code>` (see [Generating a language](#generating-a-language)); `--unimorph <tsv>` also works on `tokenize`, `analyze` and the other SOURCE commands. UniMorph's tables are CC BY-SA, so they are downloaded for you, never bundled.
+
 For each lemma it picks a stem, splits every form into stem + suffix, and groups lemmas with the same suffixes into shared paradigm classes:
 - **Stem choice.** The stem is the lemma prefix after which most forms end in a suffix that other lemmas show in the same cell.
 - **Accent shifts** (`ór|ala` beside `or|ar`) become stem variants.
@@ -301,6 +340,17 @@ Measured on UniMorph data. Every tenth lemma is held out; the rest train the dra
 
 The right features appear among the readings for 98.9% (Turkish), 97.7% (Spanish) and 96.2% (English) of held-out forms. Full English generates and compiles in 5.6 s into a 97 MB artifact (382k lemmas, mostly nouns).
 
+### Discovering a grammar from a word list
+
+For a language with no UniMorph table, `Lexer::from_wordlist(&text)` (or `--wordlist words.txt`, or `discover::from_wordlist` for the spec and the findings) finds the paradigms itself (`Lexer::builder().words(&text)` is the friendly door to it). Input is words, nothing else:
+
+1. Every word is cut at every point into stem (3+ letters) and suffix (up to 6, or none).
+2. A suffix is productive when at least `max(3, words/1000)` stems carry it beside another suffix.
+3. Each word keeps the cut whose stem carries the most productive suffixes, the longest stem on a tie (`walk` beats `wal` for `walked`, because `walk` is also a word).
+4. Stems with the same suffix set share a paradigm class. A stem seen with one suffix is not evidence, so its words are listed whole.
+
+Measured as for UniMorph: forms of unseen lemmas, grammar built from the other lemmas' forms only (no lemmas, no features). The stem boundary the top hybrid reading proposes matches the true lemma boundary for 77% of English forms (4k-word list, 0.02 s to build). On Turkish it is 52% (200k words, 5 s): a suffix chain (`-lerimizden`) is split into its productive parts, but harmony variants (`lar`/`ler`) are still separate suffixes. Suffixes carry only their spelling (`SFX:ed`), no features. Treat it as a first draft: you get segmentation and stem classes, and you add features and rules by hand.
+
 ## Languages
 
 | Spec | Shows | Examples (all in tests) |
@@ -314,7 +364,7 @@ The right features appear among the readings for 98.9% (Turkish), 97.7% (Spanish
 
 Apart from English, these are compact demo lexicons (a few hundred morphemes each) that show the spec language. Extend them, or write your own.
 
-**Normalization** is per language and applied by `lex_text`:
+**Normalization** is per language and applied by `analyze` and `analyze_text`:
 - Latin combining marks are composed.
 - Case folding is per language (Turkish `I→ı`, `İ→i`).
 - `’` becomes `'` (and stays inside French words).
@@ -379,6 +429,9 @@ src/spec/             parser + compiler: registers, archiphonemes, rules, guards
 src/morphotactics.rs  lattice states, register tables, guards, pins, underlying-mode registers
 src/shapes.rs         stem shapes: what unknown stems borrow from known ones
 src/generate.rs       UniMorph → .morph drafts
+src/discover.rs       word list → .morph drafts (paradigm discovery)
+src/build.rs          LexerBuilder: combines tables, words, spec and corpus
+src/word.rs           Word, Part, Kind: the everyday view of a result
 tools/english/        hand-written English grammar
 examples/build_english.rs   ESDB + grammar → data/english.morph
 src/fused/            the lexer: builder (one loop), scan, hybrid, artifact

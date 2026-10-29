@@ -32,7 +32,7 @@ fn analyzers_match_string_level_oracle() -> TestResult {
     assert!(gen.surfaces.len() > 10_000, "oracle too small: {}", gen.surfaces.len());
     let f = morph_fst::Lexer::compile(&text)?;
     for (surface, want) in &gen.surfaces {
-        let got_f = glosses(f.analyze(surface, 512));
+        let got_f = glosses(f.all_analyses(surface, 512));
         assert_eq!(&got_f, want, "fused: {surface}");
     }
     let mut rejected = 0;
@@ -40,7 +40,7 @@ fn analyzers_match_string_level_oracle() -> TestResult {
         if gen.surfaces.contains_key(naive) {
             continue;
         }
-        assert!(glosses(f.analyze(naive, 512)).is_empty(), "fused accepted forbidden {naive}");
+        assert!(glosses(f.all_analyses(naive, 512)).is_empty(), "fused accepted forbidden {naive}");
         rejected += 1;
     }
     assert!(rejected > 1000, "too few negative cases: {rejected}");

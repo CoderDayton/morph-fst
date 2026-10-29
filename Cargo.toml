@@ -63,6 +63,12 @@ test = true
 name = "api"
 
 [[test]]
+name = "discover"
+
+[[test]]
+name = "friendly"
+
+[[test]]
 name = "linmax_prop"
 
 [[test]]

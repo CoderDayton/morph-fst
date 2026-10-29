@@ -345,11 +345,11 @@ fn entry_head(surface: &str, lemma: &str) -> String {
 }
 
 /// A token safe for a `.morph` line: no whitespace, no comment marker.
-fn clean(s: &str) -> String {
+pub(crate) fn clean(s: &str) -> String {
     s.chars().map(|c| if c.is_whitespace() || c == '!' { '_' } else { c }).collect()
 }
 
 /// A lexicon-name fragment.
-fn ident(s: &str) -> String {
+pub(crate) fn ident(s: &str) -> String {
     s.chars().map(|c| if c.is_alphanumeric() || c == '_' { c } else { '_' }).collect()
 }

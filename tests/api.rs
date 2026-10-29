@@ -1,4 +1,4 @@
-//! The public API with default features (no dependencies).
+//! The public API with default features.
 
 use morph_fst::output::{reconstruct, segmentation};
 use morph_fst::rng::Rng;
@@ -109,6 +109,38 @@ fn running_text_is_normalized_per_language() -> TestResult {
     // Igbo: tone marks are stripped, dot-below kept
     let ig = Lexer::bundled("igbo")?;
     assert_eq!(words(&ig, "Ị́ga"), ["ịga"]);
+    Ok(())
+}
+
+#[test]
+fn threaded_text_matches_serial() -> TestResult {
+    let lx = Lexer::bundled("english")?;
+    let mut rng = Rng::new(5);
+    let alpha: Vec<char> = "abcdefghilmnoprstu".chars().collect();
+    let mut text = String::new();
+    for i in 0..600 {
+        let w: String = (0..2 + rng.below(9)).map(|_| *rng.pick(&alpha)).collect();
+        text.push_str(&w);
+        text.push_str(if i % 7 == 0 { "ing, stopped the " } else { " " });
+    }
+    for mode in [Mode::Strict, Mode::Hybrid] {
+        let serial = lx.lex_text(&text, mode);
+        for threads in [0, 1, 2, 5] {
+            assert_eq!(lx.lex_text_par(&text, mode, threads), serial, "{mode:?} x{threads}");
+        }
+    }
+    assert!(lx.lex_text_par("", Mode::Strict, 4).is_empty());
+    Ok(())
+}
+
+#[test]
+fn a_lexer_comes_straight_from_unimorph_tables() -> TestResult {
+    let tsv = "walk\twalk\tV;NFIN\nwalk\twalked\tV;PST\nwalk\twalks\tV;PRS;3;SG\n\
+               talk\ttalk\tV;NFIN\ntalk\ttalked\tV;PST\ntalk\ttalks\tV;PRS;3;SG\n";
+    let lx = Lexer::from_unimorph(tsv)?;
+    assert_eq!(lx, Lexer::compile(&morph_fst::generate::from_unimorph(tsv)?.spec)?);
+    assert!(matches!(lx.lex("talked", Mode::Strict), WordOutput::Analyzed { .. }));
+    assert!(Lexer::from_unimorph("").is_err());
     Ok(())
 }
 

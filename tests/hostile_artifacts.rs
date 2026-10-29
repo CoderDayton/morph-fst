@@ -108,7 +108,7 @@ fn exercise(lx: &Lexer) {
     for w in WORDS {
         let _ = lx.lex(w, Mode::Strict);
         let _ = lx.lex(w, Mode::Hybrid);
-        let _ = lx.analyze(w, 64);
+        let _ = lx.all_analyses(w, 64);
     }
     let _ = Lexer::from_bytes(&lx.to_bytes());
 }

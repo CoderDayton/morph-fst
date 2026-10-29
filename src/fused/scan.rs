@@ -64,7 +64,7 @@ impl Lexer {
     /// All analyses of a normalized word (up to `cap`, best first), or
     /// `None` if the grammar rejects it. No fallback.
     #[doc(hidden)]
-    pub fn analyze(&self, word: &str, cap: usize) -> Option<WordOutput> {
+    pub fn all_analyses(&self, word: &str, cap: usize) -> Option<WordOutput> {
         let lat = self.lattice(word)?;
         let (best, all) = lat.decode(&self.mt, cap)?;
         Some(WordOutput::Analyzed { best, all })

@@ -2,58 +2,54 @@
 //!
 //! A rule-based **morphological analyzer** fused with a **deterministic
 //! subword fallback** for words the grammar does not know. One spec file in,
-//! one compiled artifact out, one left-to-right scan per word. No
-//! dependencies by default.
+//! one compiled artifact out, one left-to-right scan per word.
 //!
-//! [`Lexer`] is the single entry point: build it, then lex.
+//! Three steps: get a [`Lexer`], [`analyze`](Lexer::analyze) words, read
+//! the [`Word`].
 //!
 //! ```
-//! use morph_fst::{Lexer, Mode, WordOutput};
+//! use morph_fst::{Kind, Lexer};
 //!
 //! let lx = Lexer::bundled("english")?;
 //!
-//! // A known word: full analysis (lemma + tag per morpheme).
-//! let out = lx.lex("unhappiest", Mode::Strict);
-//! assert_eq!(out.tokens(), ["un<PFX:NEG>", "happy<ADJ>", "est<SUP>"]);
+//! // A word the grammar knows: every part has a lemma and a tag.
+//! let word = lx.analyze("unhappiest");
+//! assert_eq!(word.kind(), Kind::Known);
+//! assert_eq!(word.tokens(), ["un<PFX:NEG>", "happy<ADJ>", "est<SUP>"]);
 //!
-//! // An unknown word: deterministic WordPiece split, never a failure.
-//! assert!(matches!(lx.lex("blorfq", Mode::Strict), WordOutput::Fallback(_)));
+//! // A word it has never seen: known endings around a guessed stem.
+//! let word = lx.analyze("blorfing");
+//! assert_eq!(word.kind(), Kind::Guessed);
+//! assert_eq!(word.parts()[0].text(), "blorf");
+//! assert_eq!(word.parts()[1].tag(), "PROG");
 //!
-//! // Hybrid mode: known affixes around one unknown stem.
-//! assert!(matches!(lx.lex("blorfing", Mode::Hybrid), WordOutput::Hybrid { .. }));
-//!
-//! // Running text: normalized for the language, split into words.
-//! let words = lx.lex_text("The Unhappiest children", Mode::Hybrid);
-//! assert_eq!(words.len(), 3);
+//! // Running text is normalized and split into words for you.
+//! assert_eq!(lx.analyze_text("The Unhappiest children").len(), 3);
 //! # Ok::<(), morph_fst::Error>(())
 //! ```
 //!
-//! ## Building a lexer
+//! ## Getting a lexer
 //!
-//! * [`Lexer::bundled`]: a bundled spec by name (English, Turkish, Spanish,
-//!   French, Korean, Igbo).
-//! * [`Lexer::compile`]: your own `.morph` spec text.
-//! * [`Lexer::compile_with_corpus`]: the same, after learning which roots
-//!   are lexical exceptions from raw text (`INDUCE` in the spec).
-//! * [`Lexer::from_bytes`]: a lexer saved with [`Lexer::to_bytes`]. Loading
-//!   validates every table, so a corrupt file is an error, never a panic.
-//!
-//! [`generate::from_unimorph`] drafts a `.morph` spec from UniMorph tables.
+//! * [`Lexer::bundled`]: ready-made (English, Turkish, Spanish, French,
+//!   Korean, Igbo).
+//! * [`Lexer::builder`]: generate a new language from whatever data exists
+//!   for it: UniMorph tables, a word list, a hand-written spec, a corpus.
+//!   See [`LexerBuilder`].
+//! * [`Lexer::save`] and [`Lexer::load`]: compile once, reuse the file.
 //!
 //! ## What a word becomes
 //!
-//! [`Lexer::lex`] returns a [`WordOutput`]:
+//! [`Lexer::analyze`] returns a [`Word`] whose [`kind`](Word::kind) says how
+//! far the grammar got:
 //!
-//! * [`WordOutput::Analyzed`]: the grammar accepts the word. You get the best
-//!   analysis and every alternative (morphemes with byte spans, surface,
-//!   lemma, tag).
-//! * [`WordOutput::Fallback`]: the grammar rejects it, so it is split by
-//!   WordPiece longest-match (LinMaxMatch, linear time). The vocabulary is
-//!   derived from the grammar itself, and characters outside it fall back to
-//!   bytes. Concatenating the pieces always gives back the word.
-//! * [`WordOutput::Hybrid`] (with [`Mode::Hybrid`]): known affixes around one
-//!   unknown stem whose class, spelling and lemma come from known stems that
-//!   end the same way, every reading ranked.
+//! * [`Kind::Known`]: the grammar accepts the word.
+//! * [`Kind::Guessed`]: known endings around one unknown stem, whose class,
+//!   spelling and lemma come from known stems that end the same way.
+//! * [`Kind::Unsplit`]: no reading, so the word is cut into subword pieces
+//!   (only with [`Mode::Strict`]; characters outside the grammar become
+//!   bytes, and the pieces always join back into the word).
+//!
+//! [`Word::detail`] gives the full [`WordOutput`] (byte spans, every reading).
 //!
 //! ## Cargo features
 //!
@@ -63,7 +59,11 @@
 #![forbid(unsafe_code)]
 #![deny(clippy::unwrap_used, clippy::expect_used, clippy::panic, clippy::unreachable, clippy::todo, clippy::unimplemented)]
 
+pub mod discover;
 pub mod generate;
+
+mod build;
+mod word;
 
 // Internals: public for the CLI, tests and examples, not part of the API.
 #[doc(hidden)]
@@ -97,10 +97,12 @@ pub mod spec;
 #[doc(hidden)]
 pub mod subword;
 
+pub use build::LexerBuilder;
 pub use error::{Error, Result};
 pub use fused::{Lexer, Mode};
 pub use induce::{Decision, Induction};
 pub use output::{Analysis, Morph, Segment, SubToken, WordOutput};
+pub use word::{Kind, Part, Word};
 
 /// Maximum analyses kept per word in [`WordOutput::Analyzed::all`].
 pub const ANALYSES_CAP: usize = 16;

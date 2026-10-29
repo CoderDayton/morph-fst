@@ -198,7 +198,7 @@ pub fn induce(spec: &Spec, corpus: &str) -> Result<Induction> {
     // support
     let mut support: Vec<Vec<u64>> = roots.iter().map(|r| vec![0; r.hyps.len()]).collect();
     for (w, &freq) in &counts {
-        let Some(crate::WordOutput::Analyzed { all, .. }) = lexer.analyze(w, 4096) else { continue };
+        let Some(crate::WordOutput::Analyzed { all, .. }) = lexer.all_analyses(w, 4096) else { continue };
         let mut seen: BTreeMap<usize, Vec<bool>> = BTreeMap::new();
         for a in &all {
             for m in a {

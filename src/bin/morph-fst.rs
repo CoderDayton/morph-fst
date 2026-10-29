@@ -16,6 +16,13 @@ use morph_fst::{oracle, spec, Error, Lexer, Mode, Result};
 const USAGE: &str = "\
 morph-fst — morphological FST with deterministic subword fallback
 
+NEW LANGUAGE (the easy way)
+  new <code> -o <lexer.mcfu> [--wordlist <words.txt>] [--corpus <text.txt>]
+         downloads the language's UniMorph table (<code> is its three-letter
+         code: rus, spa, tur, ...) and builds a lexer. --unimorph <file> or
+         --spec <file> replace the download; --wordlist covers words the
+         table misses (and alone, builds from the list only).
+
 BUILD (one source, one compile loop, one artifact)
   build  <spec.morph> -o <lexer.mcfu> [--corpus <text.txt>]
          (--corpus: learn the spec's INDUCE exceptions from raw text first)
@@ -31,7 +38,9 @@ USE
   dump-expanded <spec.morph>                    show rule-expanded entries
   bench <spec.morph> [--words N] [--reps R]
 
-SOURCE is one of:  --spec <spec.morph>  |  --fused <lexer.mcfu>
+SOURCE is one of:  --spec <spec.morph>  |  --fused <lexer.mcfu>  |  --unimorph <unimorph.tsv>
+                   |  --wordlist <words.txt>
+(--unimorph drafts a spec from tables, --wordlist from a bare word list: no spec to write.)
 A <spec.morph> argument may also name a bundled language:
   english, turkish, spanish, french, korean, igbo
 ";
@@ -78,7 +87,7 @@ struct Args {
 
 impl Args {
     fn parse(a: &[String]) -> Result<Args> {
-        const WITH_VALUE: &[&str] = &["-o", "--spec", "--fused", "--mode", "--words", "--reps", "--corpus"];
+        const WITH_VALUE: &[&str] = &["-o", "--spec", "--fused", "--mode", "--words", "--reps", "--corpus", "--unimorph", "--wordlist"];
         let mut out = Args { pos: vec![], kv: vec![], sw: vec![] };
         let mut i = 0;
         while i < a.len() {
@@ -118,7 +127,51 @@ fn load_source(a: &Args) -> Result<Lexer> {
     if let Some(p) = a.get("--fused") {
         return Lexer::from_bytes(&read(p)?);
     }
-    Err(Error::Io("need --spec or --fused".into()))
+    if let Some(p) = a.get("--unimorph") {
+        return Lexer::from_unimorph(&read_text(p)?);
+    }
+    if let Some(p) = a.get("--wordlist") {
+        return Lexer::from_wordlist(&read_text(p)?);
+    }
+    Err(Error::Io("need --spec, --fused, --unimorph or --wordlist".into()))
+}
+
+/// The UniMorph table for a three-letter language code, downloaded with `curl`.
+/// The tables are CC BY-SA: fetched for the user, never bundled.
+fn fetch_unimorph(code: &str) -> Result<String> {
+    if code.len() != 3 || !code.bytes().all(|b| b.is_ascii_lowercase()) {
+        return Err(Error::Io(format!("`{code}` is not a three-letter UniMorph language code (like rus, spa, tur)")));
+    }
+    let url = format!("https://raw.githubusercontent.com/unimorph/{code}/master/{code}");
+    eprintln!("downloading {url} (UniMorph, CC BY-SA 3.0)");
+    let out = std::process::Command::new("curl").args(["-fsSL", "--max-time", "600", &url]).output();
+    match out {
+        Ok(o) if o.status.success() => String::from_utf8(o.stdout).map_err(|_| Error::Io(format!("{url}: not UTF-8"))),
+        _ => Err(Error::Io(format!("could not download the UniMorph table for `{code}` (is that a UniMorph language, and is curl installed?)"))),
+    }
+}
+
+/// `new <code> -o out.mcfu`: build a lexer from every source given.
+fn new_language(a: &Args) -> Result<()> {
+    let t = Instant::now();
+    let mut b = Lexer::builder();
+    if let Some(p) = a.get("--spec") {
+        b = b.spec(&spec_text(p)?);
+    } else if let Some(p) = a.get("--unimorph") {
+        b = b.unimorph(&read_text(p)?);
+    } else if let Some(code) = a.pos.first() {
+        b = b.unimorph(&fetch_unimorph(code)?);
+    }
+    if let Some(p) = a.get("--wordlist") {
+        b = b.words(&read_text(p)?);
+    }
+    if let Some(p) = a.get("--corpus") {
+        b = b.corpus(&read_text(p)?);
+    }
+    let lx = b.build()?;
+    lx.save(a.out()?)?;
+    eprintln!("built {} entries, {} stem shapes in {:.2?}; saved to {}", lx.mt.entries.len(), lx.mt.shapes.len(), t.elapsed(), a.out()?);
+    Ok(())
 }
 
 /// `generate <unimorph.tsv> [-o out.morph]`: spec to the file or stdout,
@@ -148,6 +201,7 @@ fn run(argv: &[String]) -> Result<()> {
     let a = Args::parse(&argv[1..])?;
     match cmd.as_str() {
         "help" | "--help" | "-h" => print!("{USAGE}"),
+        "new" => new_language(&a)?,
         "build" => {
             let t = Instant::now();
             let src = spec_text(a.pos1("spec")?)?;
@@ -247,7 +301,7 @@ fn run(argv: &[String]) -> Result<()> {
             let lx = load_source(&a)?;
             for w in &a.pos {
                 let w = &morph_fst::normalize::normalize(w, &lx.mt.norm);
-                match lx.analyze(w, 64) {
+                match lx.all_analyses(w, 64) {
                     Some(WordOutput::Analyzed { all, .. }) => {
                         for an in all {
                             println!("{}\t{}\t[{}]", compose_hangul(w), analysis_string(&an), segmentation(&an));
@@ -274,7 +328,7 @@ fn run(argv: &[String]) -> Result<()> {
             if a.has("--keep-case") {
                 lx.mt.norm.case = spec::CaseMode::None;
             }
-            let results = lx.lex_text(&text, mode);
+            let results = lx.lex_text_par(&text, mode, 0);
             if a.has("--tokens") {
                 let toks: Vec<String> = results.iter().flat_map(|(_, o)| o.tokens()).collect();
                 println!("{}", toks.join(" "));

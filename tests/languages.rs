@@ -232,14 +232,14 @@ fn oracle_all_languages() -> TestResult {
         let gen = oracle::generate(&ast, DEPTH, 400_000)?;
         let f = lexer(lang)?;
         for (surface, want) in &gen.surfaces {
-            assert_eq!(&glosses(f.analyze(surface, 512)), want, "{lang}: {}", compose_hangul(surface));
+            assert_eq!(&glosses(f.all_analyses(surface, 512)), want, "{lang}: {}", compose_hangul(surface));
         }
         let mut neg = 0;
         for w in gen.naive.iter().chain(&gen.wrong_archi) {
             if gen.surfaces.contains_key(w) {
                 continue;
             }
-            assert!(glosses(f.analyze(w, 512)).is_empty(), "{lang} accepted forbidden {}", compose_hangul(w));
+            assert!(glosses(f.all_analyses(w, 512)).is_empty(), "{lang} accepted forbidden {}", compose_hangul(w));
             neg += 1;
         }
         eprintln!("{lang}: {} surfaces, {} forbidden forms rejected", gen.surfaces.len(), neg);

@@ -283,7 +283,7 @@ impl Lexicon {
 }
 
 fn analyses(lx: &morph_fst::Lexer, w: &str) -> Vec<morph_fst::Analysis> {
-    match lx.analyze(w, 4096) {
+    match lx.all_analyses(w, 4096) {
         Some(morph_fst::WordOutput::Analyzed { all, .. }) => all,
         _ => Vec::new(),
     }
@@ -658,7 +658,7 @@ mod tests {
     #[test]
     fn the_spec_compiles_and_analyzes() {
         let lx = morph_fst::Lexer::compile(&spec()).unwrap_or_else(|e| panic!("{e}"));
-        let Some(morph_fst::WordOutput::Analyzed { best, .. }) = lx.analyze("stopped", 64) else { panic!("stopped") };
+        let Some(morph_fst::WordOutput::Analyzed { best, .. }) = lx.all_analyses("stopped", 64) else { panic!("stopped") };
         assert_eq!(best.iter().map(|m| format!("{}<{}>", m.lemma, m.tag)).collect::<Vec<_>>(), ["stop<V>", "ed<PAST>"]);
     }
 }

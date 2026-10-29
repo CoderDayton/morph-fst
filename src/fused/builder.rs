@@ -82,6 +82,6 @@ impl Lexer {
             tb.add_key(key, *cont, a.piece, &a.payload);
         }
         // ... and ONE BFS (failure links, pops, CSR, payload packing).
-        Lexer { mt, trie: tb.finish() }
+        Lexer { mt, trie: tb.finish(), mode: super::Mode::Hybrid }
     }
 }

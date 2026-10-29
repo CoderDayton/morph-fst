@@ -87,7 +87,7 @@ fn analyzer_matches_oracle_with_zeros() -> TestResult {
     let lx = Lexer::compile(SPEC)?;
     assert!(gen.surfaces.len() > 10);
     for (surface, want) in &gen.surfaces {
-        let got: BTreeSet<Gloss> = match lx.analyze(surface, 512) {
+        let got: BTreeSet<Gloss> = match lx.all_analyses(surface, 512) {
             Some(WordOutput::Analyzed { all, .. }) => all.into_iter().map(|a| a.into_iter().map(|m| (m.lemma, m.tag)).collect()).collect(),
             _ => BTreeSet::new(),
         };

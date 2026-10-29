@@ -47,6 +47,26 @@ First release.
   license): 38k stems, each fitted to the class that reproduces its
   inflections, plus 1,521 irregular forms. On all UniMorph English forms:
   hybrid features 74.7%, lemma 92.8%.
+- `Lexer::lex_text_par` (same output as `lex_text`, spread over threads) and
+  a per-text word cache; `Lexer::from_unimorph` and CLI `--unimorph` build a
+  lexer from UniMorph tables with no spec to write.
+- Everyday API: `Lexer::analyze` / `analyze_text` return `Word` (`Kind`,
+  `Part`s with text, lemma, tag), guessing unknown words by default
+  (`Lexer::mode` to change); `Lexer::save` / `load`; `Lexer::builder()`
+  (`LexerBuilder`) combines UniMorph tables, a word list, a spec and a
+  corpus; CLI `morph-fst new <code>` downloads a UniMorph table and builds
+  a lexer. The precise layer (`lex`, `lex_text`, `lex_text_par`,
+  `from_unimorph`, `from_wordlist`) is hidden from the docs but still
+  works. The internal `analyze(word, cap)` is now `all_analyses`.
+- `discover::from_wordlist`, `Lexer::from_wordlist` and CLI `--wordlist`:
+  paradigm discovery (stems, productive suffixes, shared classes) from a
+  bare word list, for languages with no tables. Hybrid then borrows the
+  discovered endings for unseen stems. Stacked endings are split into
+  their productive pieces and chain through a shared tail (Turkish
+  stem-boundary accuracy 40% → 52%; English unchanged at 77%).
+- Hybrid: shape ranges are cached per word, and readings that differ only
+  in the unknown stem's guessed class or exceptions are kept as distinct
+  readings.
 - Bundled demo specs: Turkish, Spanish, French, Korean, Igbo.
 - Validated binary artifacts (`to_bytes` / `from_bytes`, format version 4).
 - Feature `cli`: the `morph-fst` command-line tool.

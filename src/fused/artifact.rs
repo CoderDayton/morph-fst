@@ -41,6 +41,6 @@ impl Lexer {
                 return art_err("entry not attached at its surface node");
             }
         }
-        Ok(Lexer { mt, trie })
+        Ok(Lexer { mt, trie, mode: super::Mode::Hybrid })
     }
 }

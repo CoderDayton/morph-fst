@@ -245,11 +245,11 @@ fn oracle_on_new_specs() -> TestResult {
         let gen = oracle::generate(&parse_spec(text)?, 4, 100_000)?;
         let f = lexer(text)?;
         for (surface, want) in &gen.surfaces {
-            assert_eq!(&glosses(f.analyze(surface, 512), 4), want, "{name}: {surface}");
+            assert_eq!(&glosses(f.all_analyses(surface, 512), 4), want, "{name}: {surface}");
         }
         for w in gen.naive.iter().chain(&gen.wrong_archi) {
             if !gen.surfaces.contains_key(w) {
-                assert!(glosses(f.analyze(w, 512), 4).is_empty(), "{name} accepted forbidden {w}");
+                assert!(glosses(f.all_analyses(w, 512), 4).is_empty(), "{name} accepted forbidden {w}");
             }
         }
         let good: Vec<&String> = gen.surfaces.keys().collect();
