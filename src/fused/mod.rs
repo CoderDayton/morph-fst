@@ -137,6 +137,21 @@ impl Lexer {
             .collect()
     }
 
+    /// Search terms for `text`: one lowercase key per word, its lemma, so a
+    /// query and a document meet however the word is inflected (`ran`,
+    /// `running` → `run`). Numbers, emails, URLs and abbreviations stay
+    /// whole; punctuation, symbols and clitics are dropped. Use it on both
+    /// the documents and the queries.
+    pub fn terms(&self, text: &str) -> Vec<String> {
+        const KEPT: [&str; 4] = ["NUM", "URL", "EMAIL", "ABBR"];
+        self.analyze_text(text)
+            .iter()
+            .filter(|w| w.kind() != crate::Kind::Literal || w.parts().first().is_some_and(|p| KEPT.contains(&p.tag())))
+            .map(|w| crate::normalize::normalize(w.lemma(), &self.mt.norm))
+            .filter(|t| !t.is_empty())
+            .collect()
+    }
+
     /// Save the compiled lexer to a file; [`load`](Self::load) reads it back
     /// without recompiling.
     pub fn save(&self, path: impl AsRef<std::path::Path>) -> crate::Result<()> {

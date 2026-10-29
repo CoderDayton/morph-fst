@@ -20,7 +20,7 @@ cargo run --release --example build_english -- <ESDB scowl-pre.txt> > data/engli
 | Scan, hybrid search, artifact | `src/fused/` |
 | Stem shapes (unknown stems) | `src/shapes.rs` |
 | Subword trie, LinMaxMatch | `src/subword/` |
-| Everyday API (`analyze`, `Word`, `lemma`, `Part`, `Kind`) | `src/word.rs`, `src/fused/mod.rs` |
+| Everyday API (`analyze`, `terms`, `Word`, `lemma`, `Part`, `Kind`) | `src/word.rs`, `src/fused/mod.rs` |
 | Tokenizer (`tokenize`, spans, classes) | `src/tokenize.rs` |
 | Language builder (`Lexer::builder`) | `src/build.rs` |
 | UniMorph → spec | `src/generate.rs` |

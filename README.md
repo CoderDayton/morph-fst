@@ -66,11 +66,26 @@ let lx = Lexer::load("turkish.mcfu")?;
 | One word | `lx.analyze(word)` |
 | Running text | `lx.analyze_text(text)`: [tokenized](#tokenizer), each word normalized (Turkish `I→ı`, tone stripping, Hangul → jamo, …), and spread over all cores when long (each distinct word is lexed once). `word.span()` points into your text |
 | Just the tokens | `morph_fst::tokenize(text)`: spans and classes, no lexicon needed |
+| Search keys | `lx.terms(text)`: one lowercase lemma per word, for documents and queries alike, see [Search](#search) |
 | Skip the guessing | `Lexer::bundled("english")?.mode(Mode::Strict)` |
 | Everything about a word | `word.detail()`: byte spans, every reading, subword pieces |
 | Save and reload | `lx.save(path)`, `Lexer::load(path)` |
 
 A `Word` has `text()`, `span()`, `kind()`, `lemma()` (the whole word's dictionary form: `runners` → `runner`, `really` stays `really`), `parts()`, `alternatives()` (other readings, best first), `tokens()` and `Display`. A `Part` has `text()`, `lemma()`, `tag()` and `is_known()`. On 18k unseen English words, guessing takes 881 ms on one thread and 165 ms on 32 cores.
+
+### Search
+
+Use `lx.terms(text)` on both the documents and the queries, and `run`, `runs`, `ran` and `running` meet at one key (`cargo run --example search`). Numbers, emails, URLs and abbreviations stay whole; punctuation, symbols and clitics are dropped; unknown words and names still get a key. Derived words keep their own key (`runner` ≠ `run`), because the lemma keeps derivation.
+
+How often forms of the same word share a key, over the 3.6k distinct word forms of the UD EWT test set, scored pairwise against its lemmas (recall: forms of one word that meet; precision: forms that meet that really are one word):
+
+| Key | Recall | Precision | F1 |
+|---|---|---|---|
+| Porter2 stem | 65.0% | 57.8% | 61.2% |
+| **morph-fst lemma** | **82.1%** | **78.8%** | **80.4%** |
+| The treebank's own lemma | 92.7% | 88.1% | 90.4% |
+
+This scores word-form conflation, not retrieval: no queries or relevance judgments were used.
 
 ### How well it does on real English
 

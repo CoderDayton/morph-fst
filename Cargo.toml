@@ -36,6 +36,9 @@ required-features = ["cli"]
 name = "quickstart"
 
 [[example]]
+name = "search"
+
+[[example]]
 name = "learn_exceptions"
 
 # Development harnesses (fingerprints, instruction counts); not published.
@@ -73,6 +76,9 @@ name = "tokenize"
 
 [[test]]
 name = "lemma"
+
+[[test]]
+name = "terms"
 
 [[test]]
 name = "linmax_prop"

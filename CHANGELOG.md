@@ -58,6 +58,9 @@ First release.
   a lexer. The precise layer (`lex`, `lex_text`, `lex_text_par`,
   `from_unimorph`, `from_wordlist`) is hidden from the docs but still
   works. The internal `analyze(word, cap)` is now `all_analyses`.
+- `Lexer::terms`: search keys (one lemma per word; numbers, emails, URLs and
+  abbreviations whole; punctuation, symbols and clitics dropped), plus the
+  `search` example. Form conflation F1 on UD EWT: 80.4% against Porter2's 61.2%.
 - `Kind::Name`: a capitalized unknown word in mid-sentence stays whole (tag
   `NAME`). Readings now rank a productive stem + inflection above an
   open-class entry that is itself the inflected spelling (`go`+`ing` over
