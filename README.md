@@ -349,7 +349,7 @@ For a language with no UniMorph table, `Lexer::from_wordlist(&text)` (or `--word
 3. Each word keeps the cut whose stem carries the most productive suffixes, the longest stem on a tie (`walk` beats `wal` for `walked`, because `walk` is also a word).
 4. Stems with the same suffix set share a paradigm class. A stem seen with one suffix is not evidence, so its words are listed whole.
 
-Measured as for UniMorph: forms of unseen lemmas, grammar built from the other lemmas' forms only (no lemmas, no features). The stem boundary the top hybrid reading proposes matches the true lemma boundary for 77% of English forms (4k-word list, 0.02 s to build). On Turkish it is 52% (200k words, 5 s): a suffix chain (`-lerimizden`) is split into its productive parts, but harmony variants (`lar`/`ler`) are still separate suffixes. Suffixes carry only their spelling (`SFX:ed`), no features. Treat it as a first draft: you get segmentation and stem classes, and you add features and rules by hand.
+Measured as for UniMorph: forms of unseen lemmas, grammar built from the other lemmas' forms only (no lemmas, no features). The stem boundary the top hybrid reading proposes matches the true lemma boundary for 77% of English forms (4k-word list, 0.02 s to build). On Turkish it is 52% (200k words, 5 s): a suffix chain (`-lerimizden`) is split into its productive parts, and harmony variants (`lar`/`ler`: same consonants, never on the same stem) share one tag, though they stay separate endings in the grammar, so accuracy does not change. Suffixes carry only their spelling (`SFX:ed`), no features. Treat it as a first draft: you get segmentation and stem classes, and you add features and rules by hand.
 
 ## Languages
 

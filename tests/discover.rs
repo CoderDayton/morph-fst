@@ -74,6 +74,26 @@ fn endings_stacked_in_the_list_are_split_into_their_pieces() -> TestResult {
 }
 
 #[test]
+fn vowel_harmony_variants_share_one_tag() -> TestResult {
+    let mut list = String::new();
+    for s in ["masa", "kapı", "yol", "dere", "kitap", "araba", "okul", "deniz"] {
+        for e in ["", "lar", "da"] {
+            list.push_str(&format!("{s}{e}\n"));
+        }
+    }
+    for s in ["elma", "ders", "göz", "gül", "kedi", "süt", "köy", "kül"] {
+        for e in ["", "ler", "de"] {
+            list.push_str(&format!("{s}{e}\n"));
+        }
+    }
+    let lx = Lexer::from_wordlist(&list)?;
+    let tag = |w: &str| lx.analyze(w).parts().last().map(|p| p.tag().to_string());
+    assert!(tag("evler").is_some());
+    assert_eq!(tag("evler"), tag("masalar"));
+    Ok(())
+}
+
+#[test]
 fn a_list_with_nothing_to_find_is_an_error() {
     assert!(Lexer::from_wordlist("").is_err());
     assert!(Lexer::from_wordlist("   \n\t\n").is_err());

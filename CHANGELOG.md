@@ -63,7 +63,8 @@ First release.
   bare word list, for languages with no tables. Hybrid then borrows the
   discovered endings for unseen stems. Stacked endings are split into
   their productive pieces and chain through a shared tail (Turkish
-  stem-boundary accuracy 40% → 52%; English unchanged at 77%).
+  stem-boundary accuracy 40% → 52%; English unchanged at 77%). Vowel-harmony
+  variants (`lar`/`ler`) that never share a stem get one tag.
 - Hybrid: shape ranges are cached per word, and readings that differ only
   in the unknown stem's guessed class or exceptions are kept as distinct
   readings.
