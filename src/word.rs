@@ -60,25 +60,33 @@ pub struct Word {
     kind: Kind,
     parts: Vec<Part>,
     others: Vec<Vec<Part>>,
+    lemma: Option<String>,
     detail: WordOutput,
     span: Range<usize>,
 }
 
 impl Word {
-    pub(crate) fn new(text: String, span: Range<usize>, detail: WordOutput) -> Self {
-        let (kind, mut readings) = match &detail {
+    pub(crate) fn new(text: String, span: Range<usize>, detail: WordOutput, derivation: &[String]) -> Self {
+        let (kind, readings) = match &detail {
             WordOutput::Analyzed { all, .. } => (Kind::Known, all.iter().map(|a| a.iter().map(known).collect()).collect::<Vec<Vec<Part>>>()),
             WordOutput::Hybrid { all, .. } => (Kind::Guessed, all.iter().map(|r| r.iter().map(segment).collect()).collect()),
             WordOutput::Fallback(pieces) => (Kind::Unsplit, vec![pieces.iter().map(piece).collect()]),
         };
-        let parts = if readings.is_empty() { Vec::new() } else { readings.remove(0) };
-        Word { text, kind, parts, others: readings, detail, span }
+        let mut distinct: Vec<Vec<Part>> = Vec::new();
+        for r in readings {
+            if !distinct.contains(&r) {
+                distinct.push(r);
+            }
+        }
+        let parts = if distinct.is_empty() { Vec::new() } else { distinct.remove(0) };
+        let lemma = (kind != Kind::Unsplit && !parts.is_empty()).then(|| whole_lemma(&parts, derivation));
+        Word { text, kind, parts, others: distinct, lemma, detail, span }
     }
 
     pub(crate) fn literal(text: &str, class: crate::Class, span: Range<usize>) -> Self {
         let detail = WordOutput::Fallback(vec![SubToken::Piece { text: text.to_string(), cont: false }]);
         let part = Part { text: text.to_string(), lemma: text.to_string(), tag: class.tag().to_string(), known: false };
-        Word { text: text.to_string(), kind: Kind::Literal, parts: vec![part], others: Vec::new(), detail, span }
+        Word { text: text.to_string(), kind: Kind::Literal, parts: vec![part], others: Vec::new(), lemma: None, detail, span }
     }
 
     /// The word, normalized for the language (lowercased, composed, ...).
@@ -94,6 +102,17 @@ impl Word {
     /// [`Lexer::analyze`](crate::Lexer::analyze) it is `0..word.len()`.
     pub fn span(&self) -> Range<usize> {
         self.span.clone()
+    }
+
+    /// The dictionary form of the whole word, from its best reading:
+    /// inflection is dropped (`runners` → `runner`), derivation is kept
+    /// (`really`, `helpful`, `unhappy`). Which endings are derivation is the
+    /// grammar's `OPTION derivation`; without it every ending is inflection.
+    /// A derived lemma is spelled as the word spells it, so it is only as
+    /// clean as the grammar's spelling rules. For [`Kind::Unsplit`] and
+    /// [`Kind::Literal`] it is the text itself.
+    pub fn lemma(&self) -> &str {
+        self.lemma.as_deref().unwrap_or(&self.text)
     }
 
     /// The best reading, left to right.
@@ -120,6 +139,22 @@ impl Word {
 impl fmt::Display for Word {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.write_str(&self.detail.render())
+    }
+}
+
+/// Derivation changes the word (prefixes, nominalizers); plural, tense and
+/// comparison do not. The grammar lists its derivational tags; a listed tag
+/// also covers its `TAG:sub` forms.
+fn derivational(tag: &str, listed: &[String]) -> bool {
+    listed.iter().any(|d| tag == d || tag.strip_prefix(d.as_str()).is_some_and(|rest| rest.starts_with(':')))
+}
+
+fn whole_lemma(parts: &[Part], listed: &[String]) -> String {
+    let stem = parts.iter().position(|p| !derivational(&p.tag, listed)).unwrap_or(0);
+    let last_derived = parts.iter().enumerate().skip(stem + 1).filter(|(_, p)| derivational(&p.tag, listed)).map(|(i, _)| i).next_back();
+    match last_derived {
+        Some(end) => parts.iter().take(end + 1).map(|p| p.text.as_str()).collect(),
+        None => parts.iter().take(stem).map(|p| p.text.as_str()).chain(parts.get(stem).map(|p| p.lemma.as_str())).collect(),
     }
 }
 

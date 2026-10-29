@@ -19,6 +19,7 @@
 ! =====================================================================
 
 OPTION max_morph_chars 48
+OPTION derivation PFX,NMLZ,ADJZ,VBZ,AGENT,ABLE,ADV
 
 LEXICON Root
   0 Prefixes ;
@@ -63,11 +64,11 @@ LEXICON Prefixes
 LEXICON Closed
   the          DET    # ;
   a            DET    # ;
-  an           DET    # ;
+  an:a         DET    # ;
   this         DET    # ;
   that         DET    # ;
-  these        DET    # ;
-  those        DET    # ;
+  these:this   DET    # ;
+  those:that   DET    # ;
   some         DET    # ;
   any          DET    # ;
   every        DET    # ;
@@ -87,9 +88,9 @@ LEXICON Closed
   much         DET    # ;
   many         DET    # ;
   i            PRON   # ;
-  me           PRON   # ;
+  me:i         PRON   # ;
   my           PRON   # ;
-  mine         PRON   # ;
+  mine:my      PRON   # ;
   myself       PRON   # ;
   you          PRON   # ;
   your         PRON   # ;
@@ -97,23 +98,23 @@ LEXICON Closed
   yourself     PRON   # ;
   yourselves   PRON   # ;
   he           PRON   # ;
-  him          PRON   # ;
+  him:he       PRON   # ;
   his          PRON   # ;
   himself      PRON   # ;
   she          PRON   # ;
-  her          PRON   # ;
+  her:she      PRON   # ;
   hers         PRON   # ;
   herself      PRON   # ;
   it           PRON   # ;
   its          PRON   # ;
   itself       PRON   # ;
   we           PRON   # ;
-  us           PRON   # ;
+  us:we        PRON   # ;
   our          PRON   # ;
   ours         PRON   # ;
   ourselves    PRON   # ;
   they         PRON   # ;
-  them         PRON   # ;
+  them:they    PRON   # ;
   their        PRON   # ;
   theirs       PRON   # ;
   themselves   PRON   # ;
@@ -278,8 +279,10 @@ LEXICON Closed
   second       NUM    # ;
   third        NUM    # ;
   can          MOD    # ;
+  ca:can       MOD    # ;
   could        MOD    # ;
   will         MOD    # ;
+  wo:will      MOD    # ;
   would        MOD    # ;
   shall        MOD    # ;
   should       MOD    # ;

@@ -70,7 +70,19 @@ let lx = Lexer::load("turkish.mcfu")?;
 | Everything about a word | `word.detail()`: byte spans, every reading, subword pieces |
 | Save and reload | `lx.save(path)`, `Lexer::load(path)` |
 
-A `Word` has `text()`, `span()`, `kind()`, `parts()`, `alternatives()` (other readings, best first), `tokens()` and `Display`. A `Part` has `text()`, `lemma()`, `tag()` and `is_known()`. On 18k unseen English words, guessing takes 881 ms on one thread and 165 ms on 32 cores.
+A `Word` has `text()`, `span()`, `kind()`, `lemma()` (the whole word's dictionary form: `runners` → `runner`, `really` stays `really`), `parts()`, `alternatives()` (other readings, best first), `tokens()` and `Display`. A `Part` has `text()`, `lemma()`, `tag()` and `is_known()`. On 18k unseen English words, guessing takes 881 ms on one thread and 165 ms on 32 cores.
+
+### How well it does on real English
+
+Scored on the 25k tokens of the [UD English EWT](https://github.com/UniversalDependencies/UD_English-EWT) test set (CC BY-SA; fetched for the check, not bundled):
+
+| Check | Result |
+|---|---|
+| Token boundaries (exact span, F1) | 97.1% |
+| Lemma of the best reading (20.6k alphabetic words) | 96.1% |
+| Part of speech of the best reading (N/V/ADJ/ADV/DET and closed classes, 20.6k words) | 80.5% |
+
+The part of speech is the weak spot: 89% of ambiguous words (`have`, `good`, `new`) do carry the right reading among their alternatives, but picking it needs the sentence. Hand-written context rules reached 83%, a gain too small to be worth English word lists in the library, so the best reading stays context-free.
 
 ### Tokenizer
 
@@ -222,6 +234,7 @@ OPTION case turkish|lower|none        OPTION hangul_jamo true      OPTION apostr
 OPTION strip_tones true               ! drop tone marks, keep dot below/above (Igbo ị́ → ị)
 OPTION harmony surface|underlying     ! what harmony reads (default: surface)
 OPTION induce_min_count 2             ! evidence needed to learn an exception
+OPTION derivation PFX,NMLZ,AGENT      ! tags that are derivation, not inflection (`Word::lemma` keeps them)
 CLASS VOWELISH = a e ı i o ö u ü {A} {I}      ! chars and archiphonemes
 
 FEATURE vow                           ! left context: an automaton over the text before

@@ -72,6 +72,9 @@ name = "friendly"
 name = "tokenize"
 
 [[test]]
+name = "lemma"
+
+[[test]]
 name = "linmax_prop"
 
 [[test]]

@@ -58,6 +58,13 @@ First release.
   a lexer. The precise layer (`lex`, `lex_text`, `lex_text_par`,
   `from_unimorph`, `from_wordlist`) is hidden from the docs but still
   works. The internal `analyze(word, cap)` is now `all_analyses`.
+- `Word::lemma`: the whole word's dictionary form from its best reading
+  (inflection dropped, derivation kept). `Word` readings no longer repeat.
+  English closed-class lemmas fixed (`me` → `i`, `them` → `they`, `an` → `a`,
+  `ca`/`wo` → `can`/`will`). On UD EWT, lemma accuracy went 92.3% → 96.1%.
+  `OPTION derivation TAG,…` lets a grammar say which tags are derivation
+  (a tag also covers `TAG:sub`); the artifact format is now version 5, so
+  saved `.mcfu` files must be rebuilt.
 - `tokenize`, `Token`, `Class`, `Word::span`, `Kind::Literal`: a lossless
   tokenizer (URLs, emails, numbers, initialisms, English clitics, symbols,
   punctuation runs). `analyze_text` and the CLI `tokenize` command use it;

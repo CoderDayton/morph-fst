@@ -238,6 +238,10 @@ pub struct Options {
     pub underlying: bool,
     /// Minimum corpus evidence (token count) for an induced exception.
     pub induce_min_count: usize,
+    /// Tags of derivational morphemes (`OPTION derivation PFX,NMLZ`). A tag
+    /// matches itself and its `TAG:sub` forms. Everything else is inflection:
+    /// a word's lemma keeps derivation and drops inflection.
+    pub derivation: Vec<String>,
 }
 
 impl Default for Options {
@@ -251,6 +255,7 @@ impl Default for Options {
             strip_tones: false,
             underlying: false,
             induce_min_count: 2,
+            derivation: Vec::new(),
         }
     }
 }

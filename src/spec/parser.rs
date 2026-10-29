@@ -135,6 +135,13 @@ fn parse_option(o: &mut Options, toks: &[&str], line: usize) -> Result<()> {
                 _ => return spec_err(line, "harmony must be surface or underlying"),
             }
         }
+        "derivation" => {
+            let tags: Vec<String> = toks[2].split(',').map(str::to_string).collect();
+            if tags.iter().any(String::is_empty) {
+                return spec_err(line, "derivation takes comma-separated tags, e.g. PFX,NMLZ");
+            }
+            o.derivation = tags;
+        }
         "induce_min_count" => match toks[2].parse::<usize>() {
             Ok(v) if v >= 1 => o.induce_min_count = v,
             _ => return spec_err(line, "induce_min_count must be ≥ 1"),

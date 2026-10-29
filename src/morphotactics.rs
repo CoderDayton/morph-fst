@@ -225,6 +225,8 @@ pub struct Morphotactics {
     pin_feats: Vec<(String, Vec<String>)>,
     rpin_feats: Vec<(String, Vec<String>)>,
     pub norm: NormOptions,
+    /// Tags of derivational morphemes (see `Options::derivation`).
+    pub derivation: Vec<String>,
     /// Stem shapes of the open lexicons, sorted by surface (hybrid mode).
     pub shapes: Vec<Shape>,
     /// Entry ids grouped by lexicon in ascending order (derived).
@@ -480,6 +482,7 @@ impl Morphotactics {
                 apostrophe_in_words: g.options.apostrophe_in_words,
                 strip_tones: g.options.strip_tones,
             },
+            derivation: g.options.derivation.clone(),
             shapes: Vec::new(),
             lex_sorted: false,
             lex_of: Vec::new(),
@@ -925,6 +928,10 @@ impl Morphotactics {
         w.u8(self.norm.hangul_jamo as u8);
         w.u8(self.norm.apostrophe_in_words as u8);
         w.u8(self.norm.strip_tones as u8);
+        w.u32(self.derivation.len() as u32);
+        for d in &self.derivation {
+            w.str(d);
+        }
         shapes::write(&self.shapes, w);
     }
 
@@ -1035,6 +1042,11 @@ impl Morphotactics {
         let hangul_jamo = r.u8()? == 1;
         let apostrophe_in_words = r.u8()? == 1;
         let strip_tones = r.u8()? == 1;
+        let n_derivation = r.count(4)?;
+        let mut derivation = Vec::with_capacity(n_derivation);
+        for _ in 0..n_derivation {
+            derivation.push(r.string()?);
+        }
         let shapes = shapes::read(r, &classes, &entries)?;
 
         // ---- validation ----
@@ -1173,6 +1185,7 @@ impl Morphotactics {
             pin_feats,
             rpin_feats,
             norm: NormOptions { case, hangul_jamo, apostrophe_in_words, strip_tones },
+            derivation,
             shapes,
             lex_sorted: false,
             lex_of: Vec::new(),

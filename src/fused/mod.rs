@@ -96,7 +96,7 @@ impl Lexer {
     pub fn analyze(&self, word: &str) -> crate::Word {
         let text = crate::normalize::normalize(word, &self.mt.norm);
         let detail = self.lex(&text, self.mode);
-        crate::Word::new(text, 0..word.len(), detail)
+        crate::Word::new(text, 0..word.len(), detail, &self.mt.derivation)
     }
 
     /// Analyze running text: [`tokenize`](crate::tokenize) it, then analyze
@@ -123,7 +123,7 @@ impl Lexer {
             .map(|(t, norm)| {
                 let surface = text.get(t.span()).unwrap_or_default();
                 let lexed = match norm {
-                    Some(n) => outs.next().map(|detail| crate::Word::new(n, t.span(), detail)),
+                    Some(n) => outs.next().map(|detail| crate::Word::new(n, t.span(), detail, &self.mt.derivation)),
                     None => None,
                 };
                 lexed.unwrap_or_else(|| crate::Word::literal(&surface.replace('\u{2019}', "'"), t.class(), t.span()))
