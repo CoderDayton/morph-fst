@@ -375,6 +375,8 @@ impl Lexer {
             chart.push(Deriv { cost, prev: d, pos: h as u32, layer: 1, state: t, step: Step::Stem { head_end: h as u32, shape: None } });
         }
         sc.wild = wild;
+        let empty = mt.shapes.partition_point(|s| s.surface.is_empty());
+        self.shape_arcs(w, chart, q, h, 0..empty, sc);
         let k = w.char_idx(h);
         let ranges = match sc.prefix.get_mut(k).and_then(Option::take) {
             Some(r) => r,
@@ -472,7 +474,7 @@ impl Lexer {
             }
             let Some(segs) = self.segments(&w, &chart, d) else { continue };
             // A bare head alone says nothing the plain fallback does not.
-            if segs.len() == 1 && matches!(x.step, Step::Stem { shape: None, .. }) {
+            if segs.len() == 1 && self.bare_head(x.step) {
                 continue;
             }
             let support = self.stem_support(&chart, d);
@@ -495,6 +497,14 @@ impl Lexer {
         let all: Vec<Vec<Segment>> = groups.into_iter().map(|g| g.segs).collect();
         let segments = all.first()?.clone();
         Some(WordOutput::Hybrid { segments, all, unknown_chars })
+    }
+
+    /// A stem step with no ending of known stems behind it.
+    fn bare_head(&self, step: Step) -> bool {
+        match step {
+            Step::Stem { shape, .. } => shape.and_then(|i| self.mt.shapes.get(i as usize)).is_none_or(|s| s.surface.is_empty() && s.lemma.is_empty()),
+            _ => false,
+        }
     }
 
     /// Support of the stem shape a derivation uses (0 for a bare head).

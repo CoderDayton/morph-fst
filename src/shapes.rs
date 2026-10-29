@@ -5,7 +5,9 @@
 //! everything the compiler attached to that allomorph: continuation, filter,
 //! guard and zero morphemes. Hybrid mode reads an unknown stem as a free head
 //! plus a shape, so its spelling changes, inflection class and lemma all come
-//! from known stems that end the same way. `support` counts those stems and
+//! from known stems that end the same way. The empty ending is a shape too:
+//! it gives a stem the lemma ending its whole class shares (`film` for
+//! `filmować`), whatever its last letters. `support` counts those stems and
 //! ranks competing guesses. Nothing is learned beyond the lexicon itself.
 
 use std::collections::{BTreeMap, BTreeSet};
@@ -36,31 +38,36 @@ type Key<'a> = (String, String, ClassId, &'a str, ClassId, u16, u32, &'a [String
 /// Shapes of every open lexicon, sorted by surface (most support first).
 /// None in underlying-harmony mode, where a stem's harmony depends on all of
 /// it, and none for INDUCE lexicons, whose unknown stems infer exceptions.
-/// Stems with irregular forms listed whole (`ran:run`) are skipped: irregular
-/// inflection is unproductive, so new words never follow it.
+/// Stems with irregular forms of their own part of speech listed whole
+/// (`ran:run`, tag `V;PST`) are skipped: irregular inflection is
+/// unproductive, so new words never follow it. A whole form of another part
+/// of speech (`abonując:abonować`, tag `V.CVB`) is just uninflected. Parts of
+/// speech compare by the tag's first token, so an irregular `V.PTCP;PST`
+/// form does not mark a lemma whose stems are tagged `V`.
 pub fn derive(g: &Grammar) -> Vec<Shape> {
     if g.options.underlying {
         return Vec::new();
     }
     let open = |e: &crate::spec::Entry| g.classes.get(e.lexicon as usize).is_some_and(|c| c.open_tag.is_some());
-    let irregular: BTreeSet<&str> = g.entries.iter().filter(|e| !open(e) && e.surface != e.lemma).map(|e| e.lemma.as_str()).collect();
+    fn pos(tag: &str) -> &str {
+        tag.split([';', '+']).next().unwrap_or_default()
+    }
+    let irregular: BTreeSet<(&str, &str)> = g.entries.iter().filter(|e| !open(e) && e.surface != e.lemma).map(|e| (e.lemma.as_str(), pos(&e.tag))).collect();
     let mut seen: BTreeMap<Key, (u32, u32)> = BTreeMap::new();
     for (id, e) in g.entries.iter().enumerate() {
         if !open(e) || g.induce_classes.contains(&e.lexicon) || !e.pin_set.is_empty() || !e.rpin_set.is_empty() {
             continue;
         }
-        if irregular.contains(e.lemma.as_str()) {
+        if irregular.contains(&(e.lemma.as_str(), pos(e.tag.as_str()))) {
             continue;
         }
         let s: Vec<char> = e.surface.chars().collect();
         let l: Vec<char> = e.lemma.chars().collect();
         let common = s.iter().zip(&l).take_while(|(a, b)| a == b).count();
-        // Every proper ending: the head before it keeps at least one char.
+        // Every ending, the empty one included: the head before it keeps at
+        // least one char.
         for start in (1..=common).rev() {
             let (Some(st), Some(lt)) = (s.get(start..), l.get(start..)) else { break };
-            if st.is_empty() {
-                continue;
-            }
             let key = (st.iter().collect(), lt.iter().collect(), e.lexicon, e.tag.as_str(), e.cont, e.filter, e.guard, e.zeros.as_slice());
             seen.entry(key).or_insert((id as u32, 0)).1 += 1;
         }
@@ -106,7 +113,7 @@ pub fn read(r: &mut Reader, classes: &[ClassRt], entries: &[EntryRt]) -> Result<
         let support = r.u32()?;
         let open = classes.get(class as usize).is_some_and(|c| c.open_tag.is_some());
         let owner = entries.get(entry as usize).map(|e| e.lexicon as u32);
-        if surface.is_empty() || !open || owner != Some(class) {
+        if !open || owner != Some(class) {
             return art_err("bad stem shape");
         }
         if out.last().is_some_and(|p| p.surface > surface) {

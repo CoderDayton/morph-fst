@@ -58,6 +58,17 @@ First release.
   a lexer. The precise layer (`lex`, `lex_text`, `lex_text_par`,
   `from_unimorph`, `from_wordlist`) is hidden from the docs but still
   works. The internal `analyze(word, cap)` is now `all_analyses`.
+- Unknown stems take their class's lemma ending: the empty stem ending is a
+  shape too, so `blorf` + `ować` reads as lemma `blorfować` however the stem
+  ends. A whole form of another part of speech (`abonując`, tag `V.CVB`) no
+  longer marks its lemma irregular, which had hidden every such verb from
+  shape derivation. Artifact format version 6: saved `.mcfu` files must be
+  rebuilt. Held-out UniMorph lemma and features, top reading (`cargo run
+  --release --example heldout`): Polish 60.5% → 74.2%, Russian 59.4% → 76.2%,
+  German 17.9% → 38.9%, Korean 0% → 49.4%, Turkish 87.9% → 90.7%, Spanish
+  78.5% → 80.3%, English 78.0% → 78.3%; Hungarian unchanged. English
+  treebank lemma accuracy 96.7% → 96.6% (a few short unknown words now read
+  as stem + `s`). English `as` joined the closed class.
 - `Lexer::terms`: search keys (one lemma per word; numbers, emails, URLs and
   abbreviations whole; punctuation, symbols and clitics dropped), plus the
   `search` example. Form conflation F1 on UD EWT: 80.4% against Porter2's 61.2%.

@@ -5,7 +5,7 @@
 use morph_fst::generate::from_unimorph;
 use morph_fst::normalize::{compose_hangul, normalize};
 use morph_fst::rng::Rng;
-use morph_fst::{Lexer, Mode, WordOutput};
+use morph_fst::{Lexer, Mode, Segment, WordOutput};
 use std::collections::BTreeSet;
 
 type TestResult = Result<(), Box<dyn std::error::Error>>;
@@ -106,6 +106,30 @@ fn stem_variants_split_instead_of_listing_whole() -> TestResult {
     assert_eq!(best_segmentation(&lx, "órala"), "ór|ala");
     assert_eq!(best_segmentation(&lx, "piensan"), "piens|an");
     assert_eq!(best_segmentation(&lx, "pensamos"), "pens|amos");
+    Ok(())
+}
+
+const CITATION: &str = "\
+cantar\tcantar\tV;NFIN
+cantar\tcanto\tV;IND;PRS;1;SG
+cantar\tcantando\tV.CVB;PRS
+hablar\thablar\tV;NFIN
+hablar\thablo\tV;IND;PRS;1;SG
+hablar\thablando\tV.CVB;PRS
+amar\tamar\tV;NFIN
+amar\tamo\tV;IND;PRS;1;SG
+amar\tamando\tV.CVB;PRS
+";
+
+/// An unknown stem takes the lemma ending its class gives every known stem
+/// (`blorf` + `o` → `blorfar`), even when no known stem ends like it.
+#[test]
+fn unknown_stems_take_their_class_lemma_ending() -> TestResult {
+    let g = from_unimorph(CITATION)?;
+    let lx = Lexer::compile(&g.spec)?;
+    let WordOutput::Hybrid { segments, .. } = lx.lex("blorfo", Mode::Hybrid) else { panic!("not hybrid") };
+    let lemma = segments.iter().find_map(|s| if let Segment::Unknown { lemma, .. } = s { Some(lemma.as_str()) } else { None });
+    assert_eq!(lemma, Some("blorfar"), "{segments:?}");
     Ok(())
 }
 

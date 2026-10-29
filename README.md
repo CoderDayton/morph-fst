@@ -379,6 +379,29 @@ Measured on UniMorph data. Every tenth lemma is held out; the rest train the dra
 
 The right features appear among the readings for 98.9% (Turkish), 97.7% (Spanish) and 96.2% (English) of held-out forms. Full English generates and compiles in 5.6 s into a 97 MB artifact (382k lemmas, mostly nouns).
 
+#### Across languages
+
+Same protocol for every language (`cargo run --release --example heldout -- <tsv>`: 4,000 evenly spaced lemmas, every tenth held out, a grammar built from the rest, each held-out form read in hybrid mode). Right means the top reading has the form's lemma and exact features; the last column counts a hit anywhere in the readings.
+
+| Language | Top: features | Top: lemma + features | Any reading |
+|---|---|---|---|
+| Hungarian | 90.9% | 86.5% | 97.7% |
+| Turkish | 94.4% | 90.7% | 97.9% |
+| Spanish | 86.1% | 80.3% | 91.2% |
+| English | 79.1% | 78.3% | 98.2% |
+| Polish | 84.8% | 74.2% | 89.8% |
+| Russian | 83.7% | 76.2% | 90.5% |
+| Korean | 51.1% | 49.4% | 58.2% |
+| German | 40.4% | 38.9% | 48.6% |
+| Hebrew | 49.2% | 34.9% | 44.4% |
+| Arabic | 17.9% | 0.5% | 0.6% |
+
+Suffixing languages with regular stems do best. Weak spots are visible rather than hidden:
+- **Templatic morphology (Arabic, Hebrew)**: a word is a root woven into a pattern, not a stem plus suffixes, so a concatenative grammar cannot read unseen roots.
+- **Stem alternation and syncretism (German, Russian, Polish)**: umlaut and case endings that several cells share leave many readings tied.
+- **Stress shifts (Spanish `hártanos`)**: the accent moves onto the stem, which needs a rule the generator does not infer.
+- **Prefixes and circumfixes (German `ge-…-t`)**: the generator only splits suffixes.
+
 ### Discovering a grammar from a word list
 
 For a language with no UniMorph table, `Lexer::from_wordlist(&text)` (or `--wordlist words.txt`, or `discover::from_wordlist` for the spec and the findings) finds the paradigms itself (`Lexer::builder().words(&text)` is the friendly door to it). Input is words, nothing else:
@@ -473,6 +496,7 @@ src/build.rs          LexerBuilder: combines tables, words, spec and corpus
 src/word.rs           Word, Part, Kind: the everyday view of a result
 tools/english/        hand-written English grammar
 examples/build_english.rs   ESDB + grammar → data/english.morph
+examples/heldout.rs         held-out lemma + feature accuracy of a generated grammar
 src/fused/            the lexer: builder (one loop), scan, hybrid, artifact
 src/induce.rs         exception learning
 src/subword/          trie + failure links, LinMaxMatch, naive reference

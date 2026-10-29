@@ -41,6 +41,9 @@ name = "search"
 [[example]]
 name = "learn_exceptions"
 
+[[example]]
+name = "heldout"
+
 # Development harnesses (fingerprints, instruction counts); not published.
 [[example]]
 name = "regress"
