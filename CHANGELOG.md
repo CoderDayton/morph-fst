@@ -58,6 +58,11 @@ First release.
   a lexer. The precise layer (`lex`, `lex_text`, `lex_text_par`,
   `from_unimorph`, `from_wordlist`) is hidden from the docs but still
   works. The internal `analyze(word, cap)` is now `all_analyses`.
+- `Kind::Name`: a capitalized unknown word in mid-sentence stays whole (tag
+  `NAME`). Readings now rank a productive stem + inflection above an
+  open-class entry that is itself the inflected spelling (`go`+`ing` over
+  `going<N>`); UD EWT lemma accuracy 96.1% → 96.7%. The CLI `tokenize`
+  command now guesses by default (`--mode strict` for the old behavior).
 - `Word::lemma`: the whole word's dictionary form from its best reading
   (inflection dropped, derivation kept). `Word` readings no longer repeat.
   English closed-class lemmas fixed (`me` → `i`, `them` → `they`, `an` → `a`,

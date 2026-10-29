@@ -96,7 +96,7 @@ impl Lexer {
     pub fn analyze(&self, word: &str) -> crate::Word {
         let text = crate::normalize::normalize(word, &self.mt.norm);
         let detail = self.lex(&text, self.mode);
-        crate::Word::new(text, 0..word.len(), detail, &self.mt.derivation)
+        crate::Word::new(text, 0..word.len(), detail, &crate::word::Policy::of(&self.mt))
     }
 
     /// Analyze running text: [`tokenize`](crate::tokenize) it, then analyze
@@ -108,6 +108,7 @@ impl Lexer {
         const PARALLEL_FROM: usize = 4096;
         let threads = if text.len() < PARALLEL_FROM { 1 } else { 0 };
         let tokens = crate::tokenize::scan(text, self.mt.norm.apostrophe_in_words);
+        let policy = crate::word::Policy::of(&self.mt);
         let normalized: Vec<Option<String>> = tokens
             .iter()
             .map(|t| {
@@ -120,13 +121,18 @@ impl Lexer {
         tokens
             .iter()
             .zip(normalized)
-            .map(|(t, norm)| {
+            .enumerate()
+            .map(|(i, (t, norm))| {
                 let surface = text.get(t.span()).unwrap_or_default();
                 let lexed = match norm {
-                    Some(n) => outs.next().map(|detail| crate::Word::new(n, t.span(), detail, &self.mt.derivation)),
+                    Some(n) => outs.next().map(|detail| crate::Word::new(n, t.span(), detail, &policy)),
                     None => None,
                 };
-                lexed.unwrap_or_else(|| crate::Word::literal(&surface.replace('\u{2019}', "'"), t.class(), t.span()))
+                match lexed {
+                    Some(w) if w.kind() == crate::Kind::Guessed && crate::tokenize::is_capitalized(surface) && !crate::tokenize::starts_sentence(text, &tokens, i) => w.into_name(),
+                    Some(w) => w,
+                    None => crate::Word::literal(&surface.replace('\u{2019}', "'"), t.class(), t.span()),
+                }
             })
             .collect()
     }

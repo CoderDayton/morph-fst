@@ -69,6 +69,33 @@ fn a_derivation_list_must_not_be_empty() {
 }
 
 #[test]
+fn a_capitalized_unknown_word_mid_sentence_is_a_name() -> TestResult {
+    let lx = Lexer::bundled("english")?;
+    let text = "We visited Blorfington and Zorbs. Zorbs ran past blorfs.";
+    let words = lx.analyze_text(text);
+    let at = |needle: &str, nth: usize| words.iter().filter(|w| text.get(w.span()) == Some(needle)).nth(nth);
+    let town = at("Blorfington", 0).ok_or("no Blorfington")?;
+    assert_eq!(town.kind(), Kind::Name);
+    assert_eq!(town.lemma(), "blorfington");
+    assert_eq!(town.parts().len(), 1);
+    let mid = at("Zorbs", 0).ok_or("no first Zorbs")?;
+    assert_eq!((mid.kind(), mid.lemma()), (Kind::Name, "zorbs"));
+    let first = at("Zorbs", 1).ok_or("no second Zorbs")?;
+    assert_eq!((first.kind(), first.lemma()), (Kind::Guessed, "zorb"));
+    let plain = at("blorfs", 0).ok_or("no blorfs")?;
+    assert_eq!((plain.kind(), plain.lemma()), (Kind::Guessed, "blorf"));
+    Ok(())
+}
+
+#[test]
+fn a_known_capitalized_word_is_not_a_name() -> TestResult {
+    let lx = Lexer::bundled("english")?;
+    let words = lx.analyze_text("We saw Dogs and Cats.");
+    assert!(words.iter().filter(|w| w.kind() == Kind::Name).count() == 0);
+    Ok(())
+}
+
+#[test]
 fn readings_do_not_repeat() -> TestResult {
     let lx = Lexer::bundled("english")?;
     for w in ["costs", "flies", "leaves", "rerunning", "sites"] {

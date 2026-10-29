@@ -16,6 +16,10 @@ pub enum Kind {
     Guessed,
     /// The grammar had no reading, so the word was cut into subword pieces.
     Unsplit,
+    /// A capitalized word the grammar does not know, in mid-sentence: a
+    /// name. Kept whole (one part, tag `NAME`), never cut at an ending, so
+    /// `Texas` is not `Texa` + `s`.
+    Name,
     /// Not a word: a number, URL, email, abbreviation, clitic, punctuation
     /// or symbol. Kept whole and not looked up; the part's tag says which.
     Literal,
@@ -66,7 +70,7 @@ pub struct Word {
 }
 
 impl Word {
-    pub(crate) fn new(text: String, span: Range<usize>, detail: WordOutput, derivation: &[String]) -> Self {
+    pub(crate) fn new(text: String, span: Range<usize>, detail: WordOutput, policy: &Policy) -> Self {
         let (kind, readings) = match &detail {
             WordOutput::Analyzed { all, .. } => (Kind::Known, all.iter().map(|a| a.iter().map(known).collect()).collect::<Vec<Vec<Part>>>()),
             WordOutput::Hybrid { all, .. } => (Kind::Guessed, all.iter().map(|r| r.iter().map(segment).collect()).collect()),
@@ -78,9 +82,16 @@ impl Word {
                 distinct.push(r);
             }
         }
+        policy.rank(&mut distinct);
         let parts = if distinct.is_empty() { Vec::new() } else { distinct.remove(0) };
-        let lemma = (kind != Kind::Unsplit && !parts.is_empty()).then(|| whole_lemma(&parts, derivation));
+        let lemma = (kind != Kind::Unsplit && !parts.is_empty()).then(|| whole_lemma(&parts, &policy.derivation));
         Word { text, kind, parts, others: distinct, lemma, detail, span }
+    }
+
+    /// A guessed word that turned out to be a name: whole, one part.
+    pub(crate) fn into_name(self) -> Self {
+        let part = Part { text: self.text.clone(), lemma: self.text.clone(), tag: "NAME".to_string(), known: false };
+        Word { kind: Kind::Name, parts: vec![part], others: Vec::new(), lemma: None, ..self }
     }
 
     pub(crate) fn literal(text: &str, class: crate::Class, span: Range<usize>) -> Self {
@@ -139,6 +150,34 @@ impl Word {
 impl fmt::Display for Word {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.write_str(&self.detail.render())
+    }
+}
+
+/// What a grammar says about its own tags: which are derivation, and which
+/// categories are open (new words keep arriving, so a listed entry that
+/// merely looks inflected is a lexicalization).
+pub(crate) struct Policy {
+    derivation: Vec<String>,
+    open: Vec<String>,
+}
+
+impl Policy {
+    pub(crate) fn of(mt: &crate::morphotactics::Morphotactics) -> Self {
+        let mut open: Vec<String> = mt.classes.iter().filter_map(|c| c.open_tag.clone()).collect();
+        open.sort();
+        open.dedup();
+        Policy { derivation: mt.derivation.clone(), open }
+    }
+
+    /// Among equally good readings, a productive stem + inflection (`go` +
+    /// `ing`) outranks an open-class entry that is itself the inflected
+    /// spelling (`going<N>`). Order is otherwise kept.
+    fn rank(&self, readings: &mut [Vec<Part>]) {
+        let inflected = |r: &[Part]| r.len() >= 2 && r.last().is_some_and(|p| p.known && !derivational(&p.tag, &self.derivation));
+        let lexicalized = |r: &[Part]| matches!(r, [p] if p.known && self.open.contains(&p.tag));
+        if readings.iter().any(|r| inflected(r)) {
+            readings.sort_by_key(|r| lexicalized(r));
+        }
     }
 }
 

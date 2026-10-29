@@ -49,6 +49,7 @@
 //!   (only with [`Mode::Strict`]; characters outside the grammar become
 //!   bytes, and the pieces always join back into the word).
 //!
+//! * [`Kind::Name`]: a capitalized unknown word in mid-sentence, kept whole.
 //! * [`Kind::Literal`]: not a word (number, URL, email, abbreviation,
 //!   clitic, punctuation, symbol); kept whole. See [`tokenize`].
 //!

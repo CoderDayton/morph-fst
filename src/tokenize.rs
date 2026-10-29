@@ -67,6 +67,33 @@ impl Token {
     }
 }
 
+/// `Texas`: an uppercase letter, then only lowercase letters.
+pub(crate) fn is_capitalized(surface: &str) -> bool {
+    let mut chars = surface.chars();
+    chars.next().is_some_and(char::is_uppercase) && chars.clone().next().is_some() && chars.all(char::is_lowercase)
+}
+
+/// Whether token `i` opens a sentence: first token, after `.`/`!`/`?`, or
+/// on a new line. Opening quotes and brackets in between are skipped.
+pub(crate) fn starts_sentence(text: &str, tokens: &[Token], i: usize) -> bool {
+    let Some(at) = tokens.get(i).map(|t| t.span.start) else { return true };
+    let mut k = i;
+    while k > 0 {
+        k -= 1;
+        let Some(prev) = tokens.get(k) else { return true };
+        let surface = text.get(prev.span()).unwrap_or_default();
+        let gap = text.get(prev.span.end..at).unwrap_or_default();
+        if gap.contains('\n') {
+            return true;
+        }
+        let opener = prev.class == Class::Punct && surface.chars().all(|c| "\"'“‘([{«".contains(c));
+        if !opener {
+            return prev.class == Class::Punct && surface.ends_with(['.', '!', '?', '…']);
+        }
+    }
+    true
+}
+
 const ABBREVIATIONS: [&str; 30] = [
     "dr", "mr", "mrs", "ms", "prof", "sr", "jr", "st", "vs", "etc", "inc", "ltd", "co", "corp", "mt", "gen", "gov", "sen", "rep", "lt", "col", "capt",
     "sgt", "rev", "fig", "approx", "dept", "est", "vol", "cf",

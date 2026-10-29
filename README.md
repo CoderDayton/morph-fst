@@ -26,7 +26,7 @@ A plain lexical analyzer is a dictionary: it knows `walked = walk + PAST` becaus
 
 Use `Strict` when you want only analyses the grammar fully licenses; use `Hybrid` for open text, where new words are the norm.
 
-By default an unknown word is **guessed** (`Mode::Hybrid`, `Kind::Guessed`). `Mode::Strict` leaves it **unsplit** into subword pieces (`Kind::Unsplit`) instead. Numbers, URLs, emails, abbreviations, clitics, punctuation and symbols are `Kind::Literal`: kept whole, never looked up.
+By default an unknown word is **guessed** (`Mode::Hybrid`, `Kind::Guessed`). `Mode::Strict` leaves it **unsplit** into subword pieces (`Kind::Unsplit`) instead. Numbers, URLs, emails, abbreviations, clitics, punctuation and symbols are `Kind::Literal`: kept whole, never looked up. A capitalized unknown word in mid-sentence is a `Kind::Name`: kept whole, so `Texas` is not `Texa` + `s`.
 
 ## Install
 
@@ -79,7 +79,7 @@ Scored on the 25k tokens of the [UD English EWT](https://github.com/UniversalDep
 | Check | Result |
 |---|---|
 | Token boundaries (exact span, F1) | 97.1% |
-| Lemma of the best reading (20.6k alphabetic words) | 96.1% |
+| Lemma of the best reading (20.6k alphabetic words) | 96.7% |
 | Part of speech of the best reading (N/V/ADJ/ADV/DET and closed classes, 20.6k words) | 80.5% |
 
 The part of speech is the weak spot: 89% of ambiguous words (`have`, `good`, `new`) do carry the right reading among their alternatives, but picking it needs the sentence. Hand-written context rules reached 83%, a gain too small to be worth English word lists in the library, so the best reading stays context-free.
@@ -441,7 +441,7 @@ Run the full suite with `cargo test --release`.
 - **Igbo is simplified.** Tones are ignored, and the negative is `-ghị` throughout.
 - **No sentence context.** Some forms are ambiguous by spelling alone: `crackle` (noun or verb), `-ed` (past or participle), bare adjectives vs nouns. Hybrid mode returns all readings ranked; picking one needs context it does not see.
 - **Demo-sized lexicons** for every language except English.
-- **English readings tie by entry order.** ESDB gives no frequency per part of speech, so among equally short readings adjectives come first, then nouns, then verbs (the order that scored best). Lexicalized derivations ESDB lists as words stay whole: `making<N>` ranks before `make<V>+ing<PROG>`.
+- **English readings tie by entry order.** ESDB gives no frequency per part of speech, so among equally short readings adjectives come first, then nouns, then verbs (the order that scored best). In the raw lattice, lexicalized entries ESDB lists as words rank first (`making<N>` before `make<V>+ing<PROG>`); `Word` flips that for open-class entries, so `analyze` puts `make` + `ing` first (it scored better on real text).
 - **Korean segments are in jamo.** A boundary inside a syllable shows as partial jamo.
 - **Punctuation** detection covers ASCII and the main Unicode punctuation blocks (`std` has no Unicode category tables).
 

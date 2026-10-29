@@ -33,7 +33,7 @@ BUILD (one source, one compile loop, one artifact)
 
 USE
   analyze  <SOURCE> word...                     all morphological analyses
-  tokenize <SOURCE> [--mode strict|hybrid] [--tokens] [--keep-case] [text...]
+  tokenize <SOURCE> [--mode hybrid|strict] [--tokens] [--keep-case] [text...]  (default: hybrid)
            (reads stdin when no text is given)
   dump-expanded <spec.morph>                    show rule-expanded entries
   bench <spec.morph> [--words N] [--reps R]
@@ -313,7 +313,7 @@ fn run(argv: &[String]) -> Result<()> {
         }
         "tokenize" => {
             let mut lx = load_source(&a)?;
-            let mode = match a.get("--mode").unwrap_or("strict") {
+            let mode = match a.get("--mode").unwrap_or("hybrid") {
                 "strict" => Mode::Strict,
                 "hybrid" => Mode::Hybrid,
                 m => return Err(Error::Io(format!("unknown mode {m}"))),
