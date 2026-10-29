@@ -26,7 +26,7 @@ A plain lexical analyzer is a dictionary: it knows `walked = walk + PAST` becaus
 
 Use `Strict` when you want only analyses the grammar fully licenses; use `Hybrid` for open text, where new words are the norm.
 
-By default an unknown word is **guessed** (`Mode::Hybrid`, `Kind::Guessed`). `Mode::Strict` leaves it **unsplit** into subword pieces (`Kind::Unsplit`) instead.
+By default an unknown word is **guessed** (`Mode::Hybrid`, `Kind::Guessed`). `Mode::Strict` leaves it **unsplit** into subword pieces (`Kind::Unsplit`) instead. Numbers, URLs, emails, abbreviations, clitics, punctuation and symbols are `Kind::Literal`: kept whole, never looked up.
 
 ## Install
 
@@ -64,12 +64,23 @@ let lx = Lexer::load("turkish.mcfu")?;
 | A ready-made language | `Lexer::bundled("english")` |
 | Your own language | `Lexer::builder()`, see [Generating a language](#generating-a-language) |
 | One word | `lx.analyze(word)` |
-| Running text | `lx.analyze_text(text)`: normalized (Turkish `I→ı`, tone stripping, Hangul → jamo, …), split into words, and spread over all cores when long (each distinct word is lexed once) |
+| Running text | `lx.analyze_text(text)`: [tokenized](#tokenizer), each word normalized (Turkish `I→ı`, tone stripping, Hangul → jamo, …), and spread over all cores when long (each distinct word is lexed once). `word.span()` points into your text |
+| Just the tokens | `morph_fst::tokenize(text)`: spans and classes, no lexicon needed |
 | Skip the guessing | `Lexer::bundled("english")?.mode(Mode::Strict)` |
 | Everything about a word | `word.detail()`: byte spans, every reading, subword pieces |
 | Save and reload | `lx.save(path)`, `Lexer::load(path)` |
 
-A `Word` has `text()`, `kind()`, `parts()`, `alternatives()` (other readings, best first), `tokens()` and `Display`. A `Part` has `text()`, `lemma()`, `tag()` and `is_known()`. On 18k unseen English words, guessing takes 881 ms on one thread and 165 ms on 32 cores.
+A `Word` has `text()`, `span()`, `kind()`, `parts()`, `alternatives()` (other readings, best first), `tokens()` and `Display`. A `Part` has `text()`, `lemma()`, `tag()` and `is_known()`. On 18k unseen English words, guessing takes 881 ms on one thread and 165 ms on 32 cores.
+
+### Tokenizer
+
+`tokenize` is lossless: every non-space character is in exactly one token, only whitespace lies between tokens, and spans index your original text. Rules run in a fixed order with no tuned weights: URL, email, initialism (`U.S.`), then word or number, symbol, punctuation. English clitics split off (`Smith|'s`, `do|n't`); other inner apostrophes stay (`o'clock`); hyphenated words split at the hyphen.
+
+```text
+Dr. | Smith | 's | e | - | mail | : | x@y.com | costs | $ | 4.50 | ! | Do | n't | https://a.b/c?d=1 | e.g. | U.S. | ... | 1,000 | ( | 3rd | )
+```
+
+The abbreviation list and clitics are English. Other languages get the generic rules; `apostrophe_in_words` languages never split at an apostrophe.
 
 Runnable examples:
 

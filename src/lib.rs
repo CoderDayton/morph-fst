@@ -49,6 +49,9 @@
 //!   (only with [`Mode::Strict`]; characters outside the grammar become
 //!   bytes, and the pieces always join back into the word).
 //!
+//! * [`Kind::Literal`]: not a word (number, URL, email, abbreviation,
+//!   clitic, punctuation, symbol); kept whole. See [`tokenize`].
+//!
 //! [`Word::detail`] gives the full [`WordOutput`] (byte spans, every reading).
 //!
 //! ## Cargo features
@@ -63,6 +66,7 @@ pub mod discover;
 pub mod generate;
 
 mod build;
+mod tokenize;
 mod word;
 
 // Internals: public for the CLI, tests and examples, not part of the API.
@@ -102,6 +106,7 @@ pub use error::{Error, Result};
 pub use fused::{Lexer, Mode};
 pub use induce::{Decision, Induction};
 pub use output::{Analysis, Morph, Segment, SubToken, WordOutput};
+pub use tokenize::{tokenize, Class, Token};
 pub use word::{Kind, Part, Word};
 
 /// Maximum analyses kept per word in [`WordOutput::Analyzed::all`].

@@ -96,15 +96,39 @@ impl Lexer {
     pub fn analyze(&self, word: &str) -> crate::Word {
         let text = crate::normalize::normalize(word, &self.mt.norm);
         let detail = self.lex(&text, self.mode);
-        crate::Word::new(text, detail)
+        crate::Word::new(text, 0..word.len(), detail)
     }
 
-    /// Analyze running text: it is normalized, split into words, and each
-    /// word analyzed. Long texts use every core; the result is the same.
+    /// Analyze running text: [`tokenize`](crate::tokenize) it, then analyze
+    /// each word. Numbers, URLs, emails, abbreviations, clitics, punctuation
+    /// and symbols come back as [`Kind::Literal`](crate::Kind::Literal). Each
+    /// [`Word::span`](crate::Word::span) points into `text`. Long texts use
+    /// every core; the result is the same.
     pub fn analyze_text(&self, text: &str) -> Vec<crate::Word> {
         const PARALLEL_FROM: usize = 4096;
         let threads = if text.len() < PARALLEL_FROM { 1 } else { 0 };
-        self.lex_text_par(text, self.mode, threads).into_iter().map(|(w, d)| crate::Word::new(w, d)).collect()
+        let tokens = crate::tokenize::scan(text, self.mt.norm.apostrophe_in_words);
+        let normalized: Vec<Option<String>> = tokens
+            .iter()
+            .map(|t| {
+                let surface = text.get(t.span()).unwrap_or_default();
+                (t.class() == crate::Class::Word).then(|| crate::normalize::normalize(surface, &self.mt.norm)).filter(|n| !n.is_empty())
+            })
+            .collect();
+        let lexed: Vec<&str> = normalized.iter().flatten().map(String::as_str).collect();
+        let mut outs = self.lex_words(&lexed, self.mode, threads).into_iter();
+        tokens
+            .iter()
+            .zip(normalized)
+            .map(|(t, norm)| {
+                let surface = text.get(t.span()).unwrap_or_default();
+                let lexed = match norm {
+                    Some(n) => outs.next().map(|detail| crate::Word::new(n, t.span(), detail)),
+                    None => None,
+                };
+                lexed.unwrap_or_else(|| crate::Word::literal(&surface.replace('\u{2019}', "'"), t.class(), t.span()))
+            })
+            .collect()
     }
 
     /// Save the compiled lexer to a file; [`load`](Self::load) reads it back
@@ -146,6 +170,13 @@ impl Lexer {
         let norm = &self.mt.norm;
         let text = crate::normalize::normalize(text, norm);
         let words: Vec<&str> = crate::pretok::split(&text, norm.apostrophe_in_words).into_iter().filter_map(|(s, e)| text.get(s..e)).collect();
+        let outs = self.lex_words(&words, mode, threads);
+        words.iter().zip(outs).map(|(w, o)| (w.to_string(), o)).collect()
+    }
+
+    /// Lex each of `words` (already normalized): distinct words once, over
+    /// `threads` threads (`0` = one per core). Output order matches input.
+    fn lex_words(&self, words: &[&str], mode: Mode, threads: usize) -> Vec<WordOutput> {
         let mut index: HashMap<&str, usize> = HashMap::new();
         let mut distinct: Vec<&str> = Vec::new();
         let slots: Vec<usize> = words
@@ -172,7 +203,7 @@ impl Lexer {
                 chunks.zip(handles).flat_map(|(c, h)| h.join().unwrap_or_else(|_| lex_all(c))).collect()
             })
         };
-        words.iter().zip(slots).map(|(&w, i)| (w.to_string(), outs.get(i).cloned().unwrap_or_else(|| self.lex(w, mode)))).collect()
+        words.iter().zip(slots).map(|(&w, i)| outs.get(i).cloned().unwrap_or_else(|| self.lex(w, mode))).collect()
     }
 
     /// A lexer drafted straight from [UniMorph](https://unimorph.github.io)

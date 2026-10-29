@@ -58,6 +58,11 @@ First release.
   a lexer. The precise layer (`lex`, `lex_text`, `lex_text_par`,
   `from_unimorph`, `from_wordlist`) is hidden from the docs but still
   works. The internal `analyze(word, cap)` is now `all_analyses`.
+- `tokenize`, `Token`, `Class`, `Word::span`, `Kind::Literal`: a lossless
+  tokenizer (URLs, emails, numbers, initialisms, English clitics, symbols,
+  punctuation runs). `analyze_text` and the CLI `tokenize` command use it;
+  spans point into the original text, and non-words skip the lexicon. The
+  old `lex_text*` layer keeps its simple splitter.
 - `discover::from_wordlist`, `Lexer::from_wordlist` and CLI `--wordlist`:
   paradigm discovery (stems, productive suffixes, shared classes) from a
   bare word list, for languages with no tables. Hybrid then borrows the

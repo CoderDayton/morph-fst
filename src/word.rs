@@ -1,6 +1,7 @@
 //! The everyday view of a lexed word: [`Word`] and its [`Part`]s.
 
 use std::fmt;
+use std::ops::Range;
 
 use crate::output::{Segment, SubToken, WordOutput};
 
@@ -15,6 +16,9 @@ pub enum Kind {
     Guessed,
     /// The grammar had no reading, so the word was cut into subword pieces.
     Unsplit,
+    /// Not a word: a number, URL, email, abbreviation, clitic, punctuation
+    /// or symbol. Kept whole and not looked up; the part's tag says which.
+    Literal,
 }
 
 /// One piece of a word: a stem, an ending, or (for [`Kind::Unsplit`]) a subword piece.
@@ -57,17 +61,24 @@ pub struct Word {
     parts: Vec<Part>,
     others: Vec<Vec<Part>>,
     detail: WordOutput,
+    span: Range<usize>,
 }
 
 impl Word {
-    pub(crate) fn new(text: String, detail: WordOutput) -> Self {
+    pub(crate) fn new(text: String, span: Range<usize>, detail: WordOutput) -> Self {
         let (kind, mut readings) = match &detail {
             WordOutput::Analyzed { all, .. } => (Kind::Known, all.iter().map(|a| a.iter().map(known).collect()).collect::<Vec<Vec<Part>>>()),
             WordOutput::Hybrid { all, .. } => (Kind::Guessed, all.iter().map(|r| r.iter().map(segment).collect()).collect()),
             WordOutput::Fallback(pieces) => (Kind::Unsplit, vec![pieces.iter().map(piece).collect()]),
         };
         let parts = if readings.is_empty() { Vec::new() } else { readings.remove(0) };
-        Word { text, kind, parts, others: readings, detail }
+        Word { text, kind, parts, others: readings, detail, span }
+    }
+
+    pub(crate) fn literal(text: &str, class: crate::Class, span: Range<usize>) -> Self {
+        let detail = WordOutput::Fallback(vec![SubToken::Piece { text: text.to_string(), cont: false }]);
+        let part = Part { text: text.to_string(), lemma: text.to_string(), tag: class.tag().to_string(), known: false };
+        Word { text: text.to_string(), kind: Kind::Literal, parts: vec![part], others: Vec::new(), detail, span }
     }
 
     /// The word, normalized for the language (lowercased, composed, ...).
@@ -77,6 +88,12 @@ impl Word {
 
     pub fn kind(&self) -> Kind {
         self.kind
+    }
+
+    /// Where the word sits in the text it came from, in bytes. For
+    /// [`Lexer::analyze`](crate::Lexer::analyze) it is `0..word.len()`.
+    pub fn span(&self) -> Range<usize> {
+        self.span.clone()
     }
 
     /// The best reading, left to right.

@@ -328,14 +328,18 @@ fn run(argv: &[String]) -> Result<()> {
             if a.has("--keep-case") {
                 lx.mt.norm.case = spec::CaseMode::None;
             }
-            let results = lx.lex_text_par(&text, mode, 0);
+            let results = lx.mode(mode).analyze_text(&text);
             if a.has("--tokens") {
-                let toks: Vec<String> = results.iter().flat_map(|(_, o)| o.tokens()).collect();
+                let toks: Vec<String> = results.iter().flat_map(|w| w.tokens()).collect();
                 println!("{}", toks.join(" "));
             } else {
-                for (w, o) in results {
-                    let w = compose_hangul(&w);
-                    println!("{w:<18} {}  {}", o.source(), o.render());
+                for w in results {
+                    let text = compose_hangul(w.text());
+                    if w.kind() == morph_fst::Kind::Literal {
+                        println!("{text:<18} TOK  {}", w.parts().first().map_or("", |p| p.tag()));
+                    } else {
+                        println!("{text:<18} {}  {}", w.detail().source(), w.detail().render());
+                    }
                 }
             }
         }

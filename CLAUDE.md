@@ -21,6 +21,7 @@ cargo run --release --example build_english -- <ESDB scowl-pre.txt> > data/engli
 | Stem shapes (unknown stems) | `src/shapes.rs` |
 | Subword trie, LinMaxMatch | `src/subword/` |
 | Everyday API (`analyze`, `Word`, `Part`, `Kind`) | `src/word.rs`, `src/fused/mod.rs` |
+| Tokenizer (`tokenize`, spans, classes) | `src/tokenize.rs` |
 | Language builder (`Lexer::builder`) | `src/build.rs` |
 | UniMorph → spec | `src/generate.rs` |
 | Word list → spec | `src/discover.rs` |
@@ -37,5 +38,5 @@ cargo run --release --example build_english -- <ESDB scowl-pre.txt> > data/engli
 - Dependencies are fine when lightweight and already written. Do not hand-roll what a small crate does well.
 - Perf changes need before/after numbers on the same word list; revert no-gain changes.
 - UniMorph/Wiktextract data is CC BY-SA: fetch it, never bundle it.
-- Public API is `Lexer`, `LexerBuilder`, `Word`, `Part`, `Kind`, `Mode`, `Error`. Keep it small and plain-worded; new features go behind the builder, not as new constructors. `lex*` and `WordOutput` are the precise layer (`Word::detail`).
+- Public API is `Lexer`, `LexerBuilder`, `Word`, `Part`, `Kind`, `Mode`, `Error`, `tokenize`, `Token`, `Class`. Keep it small and plain-worded; new features go behind the builder, not as new constructors. `lex*` and `WordOutput` are the precise layer (`Word::detail`).
 - Public API changes (new methods, artifact format) need approval.
