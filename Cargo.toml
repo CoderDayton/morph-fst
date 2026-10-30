@@ -44,21 +44,9 @@ name = "learn_exceptions"
 [[example]]
 name = "heldout"
 
-# Development harnesses (fingerprints, instruction counts); not published.
+# English no-regression and throughput harness; not published.
 [[example]]
 name = "regress"
-
-[[example]]
-name = "instr"
-
-[[example]]
-name = "outdump"
-
-[[example]]
-name = "corpus"
-
-[[example]]
-name = "probe"
 
 # Regenerates data/english.morph from tools/english/grammar.morph and ESDB.
 [[example]]
