@@ -36,6 +36,20 @@ How often forms of the same word share a key (`lx.terms`), over the 3.6k distinc
 
 This scores word-form conflation, not retrieval: no queries or relevance judgments were used.
 
+## Real text in the other bundled languages
+
+Each bundled grammar is built from a permissively licensed lexicon (see its `examples/build_<lang>.rs`) and scored with `analyze_text` on a UD test set it was not built from. Before is the earlier demo-sized grammar.
+
+| Language | Lexicon (licence) | UD test set | Words | Part of speech | Lemma |
+|---|---|---|---|---|---|
+| Spanish | RLA-ES Hunspell (MPL-1.1) | AnCora | 36,280 | 57.3% → **88.4%** | 56.9% → **94.9%** |
+| French | Grammalecte (MPL-2.0) | GSD | 5,948 | 56.1% → **87.2%** | 61.2% → **89.2%** |
+| Turkish | Zemberek-NLP (Apache-2.0) | BOUN | 9,239 | 55.5% → **80.3%** | 56.5% → **85.7%** |
+
+Korean (mecab-ko-dic, Apache-2.0) is scored on UD Korean-Kaist by stem class, since Kaist lemmas are morpheme sequences rather than one dictionary form: of 23,875 words, 77.8% are now known to the grammar (2.7% before) and the stem's part of speech is right for 76.4% (58.9% before). Most remaining Korean misses are verbs read as adjectives (`하다` words listed as both).
+
+Turkish context rules add 2.3 points of part of speech (78.0% → 80.3%).
+
 ## Unseen words
 
 On English (UniMorph, 584k forms, 382k lemmas), every tenth lemma was held out and all its forms run in hybrid mode. These are words the analyzer has never seen:
@@ -130,6 +144,16 @@ Suffixing languages with regular stems still do best. The remaining weak spots:
 Hybrid mode searches for up to 16 ranked readings per unknown word, each with a borrowed stem shape. That makes it about 3× slower than a single-guess search, and it is what lifts held-out English from 24% to 77%. Known words cost the same in both modes. On 18k unseen English words, guessing takes 881 ms on one thread and 165 ms on 32 cores.
 
 The bundled English compiles in 325 ms into a 13.0 MB artifact, and has 29k stem shapes to search. Compile it once per process, or ship `to_bytes()`.
+
+`Lexer::bundled` compiles on every call. Measured on one machine, against reloading a saved artifact (`save` once, then `load`):
+
+| Bundled | Compile | Reload |
+|---|---|---|
+| English | 0.36 s | 0.06 s |
+| Turkish | 0.32 s | 0.03 s |
+| French | 0.92 s | 0.17 s |
+| Spanish | 1.38 s | 0.17 s |
+| Korean | 1.63 s | 0.29 s |
 
 On the full UniMorph English grammar (382k lemmas, 276k stem shapes), strict mode takes 8 µs per word and hybrid 86 µs per unknown word.
 

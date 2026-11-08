@@ -103,9 +103,9 @@ src/
     induce.rs             learning lexical exceptions from raw text
   languages.rs          the bundled grammars
   bin/morph-fst.rs      the command-line tool
-data/                   bundled .morph grammars, Turkish sample corpus
-tools/english/          the hand-written half of the English grammar
-examples/               build_english (regenerates English), heldout and treebank
+data/                   bundled .morph grammars (generated), their licences, Turkish sample corpus
+tools/<lang>/           the hand-written half of each grammar (English, Turkish, Spanish, Korean)
+examples/               build_<lang> (regenerates each bundled language), heldout and treebank
                         (accuracy), regress (English speed and exact-output check),
                         quickstart, search, learn_exceptions
 tests/                  the test suite
@@ -123,7 +123,7 @@ docs/                   these pages
 - **Igbo is simplified.** Tones are ignored, and the negative is `-ghị` throughout.
 - **One word of context.** `PREFER` rules see only the next word or the previous one, so a choice that needs the whole clause (`-ed` as past vs participle) is out of reach. `analyze` sees no context at all.
 - **Hunspell import** reads affix rules, `AF` aliases, `FORBIDDENWORD` and `NEEDAFFIX`, in UTF-8 or ISO 8859-1/15. Compounding, `ICONV`/`OCONV` and morphological aliases are not read. Dictionaries that list inflected forms as stems of their own (German `de_DE_frami`) give weaker lemmas: 37.6% of UniMorph German forms, against 69.7% for Spanish `es_ES`.
-- **Demo-sized bundled lexicons** for every language except English. UniMorph tables and UD treebanks (CC BY-SA) cannot be bundled with a permissively licensed crate, and Hunspell dictionaries carry licences of their own. `morph-fst new <code>` and `Lexer::builder().unimorph(..)` download the tables and build the full-size grammar measured in [Results](results.md).
+- **Bundled lexicons come from permissive sources only.** English (ESDB), Turkish (Zemberek-NLP), French (Grammalecte), Spanish (RLA-ES) and Korean (mecab-ko-dic) are full-size; Igbo is a demo. UniMorph tables and UD treebanks (CC BY-SA) cannot be bundled, so other languages are built at run time: `morph-fst new <code>` or `Lexer::builder().unimorph(..)` download the tables. Accuracy on UD test sets: Spanish 88.4% part of speech / 94.9% lemma, French 87.2% / 89.2%, Turkish 80.3% / 85.7%, Korean 76.4% stem class ([Results](results.md#real-text-in-the-other-bundled-languages)).
 - **English readings tie by entry order.** ESDB gives no frequency per part of speech, so among equally short readings adjectives come first, then nouns, then verbs (the order that scored best). In the raw lattice, lexicalized entries ESDB lists as words rank first (`making<N>` before `make<V>+ing<PROG>`); `Word` flips that for open-class entries, so `analyze` puts `make` + `ing` first (it scored better on real text).
 - **Korean segments are in jamo.** A boundary inside a syllable shows as partial jamo.
 - **Punctuation** detection covers ASCII and the main Unicode punctuation blocks (`std` has no Unicode category tables).
