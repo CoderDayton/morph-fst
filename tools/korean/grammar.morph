@@ -1,0 +1,175 @@
+! =====================================================================
+!  Korean grammar for morph-fst: the hand-written half of korean.morph
+! ---------------------------------------------------------------------
+!  Harmony, the stem rules, the particles and endings that choose their
+!  form, and a few function words. The lexicon (nouns, verbs,
+!  adjectives, other words, irregular forms) and mecab's lists of
+!  particles and endings are generated from mecab-ko-dic (Apache-2.0) by
+!  examples/build_korean.rs at the GENERATED marker below. Regenerate
+!  data/korean.morph after editing this file.
+!
+!  OPTION hangul_jamo: syllables (spec and input) are decomposed into
+!  conjoining jamo, so a morpheme may end inside a syllable (가+ᆻ = 갔).
+!  Context register over the jamo text:
+!     bat : what the text ends in — V vowel, C final consonant,
+!           L final ㄹ, O a bare initial (after ㅡ-deletion)
+!     vow : last vowel — A (ㅏ: bright, contracts), O (ㅗ ㅑ: bright),
+!           E (ㅓ ㅕ ㅐ ㅔ ㅘ ㅝ ...: contract), X (other: dark)
+!  Particles and endings choose their form from it: 이/가, 을/를, 은/는,
+!  과/와, (으)로, 이에요/예요, and the 아/어 ending {EO}.
+! =====================================================================
+
+OPTION max_morph_chars 96
+OPTION hangul_jamo true
+
+CLASS VOW  = ᅡ ᅢ ᅣ ᅤ ᅥ ᅦ ᅧ ᅨ ᅩ ᅪ ᅫ ᅬ ᅭ ᅮ ᅯ ᅰ ᅱ ᅲ ᅳ ᅴ ᅵ
+CLASS LEAD = ᄀ ᄁ ᄂ ᄃ ᄄ ᄅ ᄆ ᄇ ᄈ ᄉ ᄊ ᄋ ᄌ ᄍ ᄎ ᄏ ᄐ ᄑ ᄒ
+CLASS FIN  = ᆨ ᆩ ᆪ ᆫ ᆬ ᆭ ᆮ ᆰ ᆱ ᆲ ᆳ ᆴ ᆵ ᆶ ᆷ ᆸ ᆹ ᆺ ᆻ ᆼ ᆽ ᆾ ᆿ ᇀ ᇁ ᇂ
+CLASS VOWELISH = {EO} {EU}
+CLASS EO = {EO}
+
+FEATURE bat
+  ᆯ -> L
+  [FIN] -> C
+  [VOW] -> V
+  [LEAD] -> O
+
+FEATURE vow
+  ᅡ -> A
+  ᅩ ᅣ -> O
+  ᅥ ᅧ ᅢ ᅦ ᅪ ᅯ ᅫ ᅤ ᅨ ᅰ -> E
+  ᅬ ᅮ ᅱ ᅲ ᅭ ᅴ ᅵ ᅳ -> X
+
+! 아/어 ending: absorbed after a contracting vowel; bare vowel after a
+! bare initial (아프 → 아ㅍ+ㅏ = 아파); else 아 (bright) / 어 (dark)
+ARCHI EO
+  bat=V vow=A|E -> 0
+  bat=O vow=A|O -> ᅡ
+  bat=O -> ᅥ
+  vow=A|O -> 아
+  * -> 어
+
+ARCHI EU
+  bat=C -> 으
+  * -> 0
+
+ARCHI EURO
+  bat=C -> 으
+  * -> 0
+
+ARCHI SEUP
+  bat=C -> 습
+  * -> ᆸ
+
+ARCHI SUBJ
+  bat=C|L -> 이
+  * -> 가
+
+ARCHI OBJ
+  bat=C|L -> 을
+  * -> 를
+
+ARCHI TOP
+  bat=C|L -> 은
+  * -> 는
+
+ARCHI AND
+  bat=C|L -> 과
+  * -> 와
+
+ARCHI COP
+  bat=C|L -> 이에
+  * -> 예
+
+! function words first: among equal readings the earlier entry wins
+LEXICON Root
+  0 Closed ;
+  0 Inflected ;
+  0 Words ;
+  0 Nouns ;
+  0 Adjs ;
+  0 Verbs ;
+
+LEXICON Closed
+  나       PRON   Particles ;
+  저       PRON   Particles ;
+  너       PRON   Particles ;
+  그리고   CONJ   # ;
+  하지만   CONJ   # ;
+  아주     ADV    # ;
+  안       NEG    # ;
+
+LEXICON NounCont
+  0 Particles ;
+  들       PL     Particles ;
+  이       COP    VStem ;
+
+LEXICON Particles
+  {SUBJ}       SUBJ      # ;
+  {OBJ}        OBJ       # ;
+  {TOP}        TOP       # ;
+  {AND}        AND       # ;
+  {EURO}로     DIR       Aux ;
+  에             LOC       Aux ;
+  에서           LOC.SRC   Aux ;
+  의             GEN       # ;
+  도             ALSO      # ;
+  만             ONLY      Aux ;
+  까지           UNTIL     Aux ;
+  부터           FROM      Aux ;
+  한테           DAT       Aux ;
+  {COP}요      COP.POL   # ;
+  0 MParticles ;
+  0 # ;
+
+LEXICON Aux
+  {TOP}        TOP       # ;
+  도             ALSO      # ;
+  0 # ;
+
+! ---------------------------------------------------------------------
+!  Verbs and adjectives continue to VStem. Flags (set by the generator):
+!  @ha 하→해, @wa 오→와 (obligatory), @wa_opt 보→봐 (optional),
+!  @b ㅂ-irregular, @d ㄷ-irregular (its ㄹ still takes 으: pinned
+!  bat=C), @reu 르-irregular.
+! ---------------------------------------------------------------------
+LEXICON VStem
+  다             DECL      # ;
+  {EO}요       POL       # ;
+  {EO}ᆻ       PST       PastEnd ;
+  {EU}면       COND      # ;
+  {EU}세요     HON.POL   # ;
+  {SEUP}니다   FORMAL    # ;
+  고             CONJ      # ;
+  지만           CONCESS   # ;
+  0 MPrefinal ;
+  0 MEndings ;
+
+LEXICON PastEnd
+  어요           POL       # ;
+  다             DECL      # ;
+  습니다         FORMAL    # ;
+  0 MEndings ;
+
+!@GENERATED
+
+! ---------------------------------------------------------------------
+!  Stem rules before vowel-initial endings (sequential; order matters:
+!  ㄹ-deletion before ㄷ→ㄹ, ㅂ→우 feeds 우→워, 르 before ㅡ-deletion)
+RULES
+  l_del:    ᆯ -> 0     / _ +{{EU}세요,{SEUP}니다} ;
+  b_irr:    ᆸ -> 우    / _ +[VOWELISH] @b ;
+  wo_b:     ᅮ -> ᅯ      / _ +[EO] @b ;
+  d_irr:    ᆮ -> ᆯ     / _ +[VOWELISH] @d ;
+  reu:      르 -> ᆯᄅ   / _ +[EO] @reu ;
+  eu_del:   ᅳ -> 0        / _ +[EO] ;
+  ha:       ᅡ -> ᅢ      / ᄒ _ +[EO] @ha ;
+  wa:       ᅩ -> ᅪ      / _ +[EO] @wa ;
+  wa_opt?:  ᅩ -> ᅪ      / _ +[EO] @wa_opt ;
+  wo?:      ᅮ -> ᅯ      / _ +[EO] ;
+  yeo?:     ᅵ -> ᅧ     / _ +[EO] ;
+  wae?:     ᅬ -> ᅫ    / _ +[EO] ;
+
+PIECES
+  . , : ? " ( ) - /
+  0 1 2 3 4 5 6 7 8 9 ##0 ##1 ##2 ##3 ##4 ##5 ##6 ##7 ##8 ##9

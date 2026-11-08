@@ -123,7 +123,18 @@ fn crafted_artifacts_never_panic() -> TestResult {
         }
     }));
     let iters: usize = std::env::var("HOSTILE_N").ok().and_then(|s| s.parse().ok()).unwrap_or(1500);
-    let specs = languages::ALL.iter().copied().chain([("underlying", UNDERLYING), ("pins", PINS)]);
+    // the format, not the lexicon size, is under test: the small demo
+    // grammars cover every section the bundled ones have
+    let specs = [
+        ("english", languages::ENGLISH),
+        ("turkish", include_str!("fixtures/turkish.morph")),
+        ("spanish", include_str!("fixtures/spanish.morph")),
+        ("french", include_str!("fixtures/french.morph")),
+        ("korean", include_str!("fixtures/korean.morph")),
+        ("igbo", languages::IGBO),
+        ("underlying", UNDERLYING),
+        ("pins", PINS),
+    ];
     let mut rng = Rng::new(41);
     let (mut loaded, mut rejected) = (0usize, 0usize);
     for (name, text) in specs {

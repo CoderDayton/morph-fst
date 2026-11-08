@@ -4,7 +4,7 @@ version = "0.1.0"
 edition = "2021"
 rust-version = "1.82"
 description = "Rule-based morphological analyzer (finite-state, lexc/twolc-like spec language) fused with a deterministic WordPiece fallback for unknown words. Handles bidirectional and opaque vowel harmony and learns lexical exceptions from raw text"
-license = "MIT OR Apache-2.0"
+license = "Apache-2.0 AND MPL-2.0 AND MPL-1.1"
 readme = "README.md"
 documentation = "https://docs.rs/morph-fst"
 # repository = "https://github.com/CoderDatyon/morph-fst"   # add before publishing
@@ -17,10 +17,10 @@ include = [
     "/examples/quickstart.rs",
     "/examples/learn_exceptions.rs",
     "/tests/**/*.rs",
+    "/tests/fixtures/*.morph",
     "/README.md",
     "/CHANGELOG.md",
-    "/LICENSE-MIT",
-    "/LICENSE-APACHE",
+    "/LICENSE",
 ]
 
 [features]
@@ -56,6 +56,22 @@ name = "regress"
 [[example]]
 name = "build_english"
 test = true
+
+# Regenerates data/turkish.morph from tools/turkish/grammar.morph and Zemberek.
+[[example]]
+name = "build_turkish"
+
+# Regenerates data/french.morph from the Grammalecte lexicon.
+[[example]]
+name = "build_french"
+
+# Regenerates data/spanish.morph from tools/spanish/closed.morph and RLA-ES.
+[[example]]
+name = "build_spanish"
+
+# Regenerates data/korean.morph from tools/korean/grammar.morph and mecab-ko-dic.
+[[example]]
+name = "build_korean"
 
 [[test]]
 name = "api"

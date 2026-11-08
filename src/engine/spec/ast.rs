@@ -244,6 +244,11 @@ pub struct Options {
     /// matches itself and its `TAG:sub` forms. Everything else is inflection:
     /// a word's lemma keeps derivation and drops inflection.
     pub derivation: Vec<String>,
+    /// Whether a known stem + inflection outranks a single open-class entry
+    /// spelled the same (`go` + `ing` over `going<N>`; `OPTION
+    /// prefer_inflection false` turns it off, so `para` stays `para`, not
+    /// `par` + `a`). On by default.
+    pub prefer_inflection: bool,
     /// `PREFER` lines: which reading a word takes next to another word,
     /// in order (the first that applies decides).
     pub context: Vec<ContextRule>,
@@ -285,6 +290,7 @@ impl Default for Options {
             underlying: false,
             induce_min_count: 2,
             derivation: Vec::new(),
+            prefer_inflection: true,
             context: Vec::new(),
         }
     }

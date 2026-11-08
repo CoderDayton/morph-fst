@@ -23,7 +23,9 @@ impl fmt::Display for Error {
             Error::Spec { line, msg } => write!(f, "spec error (line {line}): {msg}"),
             Error::Artifact(m) => write!(f, "artifact error: {m}"),
             Error::Io(m) => write!(f, "io error: {m}"),
-            Error::UnknownLanguage(n) => write!(f, "no bundled language named `{n}` (try one of: english, turkish, spanish, french, korean, igbo)"),
+            Error::UnknownLanguage(n) => {
+                write!(f, "no bundled language named `{n}` (try one of: {})", crate::languages::NAMES.join(", "))
+            }
         }
     }
 }

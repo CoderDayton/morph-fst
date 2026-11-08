@@ -227,6 +227,8 @@ pub struct Morphotactics {
     pub norm: NormOptions,
     /// Tags of derivational morphemes (see `Options::derivation`).
     pub derivation: Vec<String>,
+    /// See `Options::prefer_inflection`.
+    pub prefer_inflection: bool,
     /// `PREFER` rules, in order (see `Options::context`).
     pub context: Vec<crate::spec::ContextRule>,
     /// Stem shapes of the open lexicons, sorted by surface (hybrid mode).
@@ -488,6 +490,7 @@ impl Morphotactics {
                 strip_vowel_marks: g.options.strip_vowel_marks,
             },
             derivation: g.options.derivation.clone(),
+            prefer_inflection: g.options.prefer_inflection,
             context: g.options.context.clone(),
             shapes: Vec::new(),
             shape_pre: Vec::new(),
@@ -949,6 +952,7 @@ impl Morphotactics {
         for d in &self.derivation {
             w.str(d);
         }
+        w.u8(self.prefer_inflection as u8);
         write_context(&self.context, w);
         shapes::write(&self.shapes, w);
     }
@@ -1066,6 +1070,11 @@ impl Morphotactics {
         for _ in 0..n_derivation {
             derivation.push(r.string()?);
         }
+        let prefer_inflection = match r.u8()? {
+            0 => false,
+            1 => true,
+            _ => return art_err("bad prefer_inflection flag"),
+        };
         let context = read_context(r)?;
         let shapes = shapes::read(r, &classes, &entries)?;
 
@@ -1206,6 +1215,7 @@ impl Morphotactics {
             rpin_feats,
             norm: NormOptions { case, hangul_jamo, apostrophe_in_words, strip_tones, strip_vowel_marks },
             derivation,
+            prefer_inflection,
             context,
             shape_pre: shapes::prefixes(&shapes),
             shapes,

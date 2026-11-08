@@ -21,7 +21,8 @@ fn every_bundled_language_compiles_and_round_trips() -> TestResult {
         assert_eq!(Lexer::from_bytes(&bytes)?, lx, "{name}");
         // deterministic build
         assert_eq!(Lexer::compile(src)?.to_bytes(), bytes, "{name}");
-        assert_eq!(Lexer::bundled(name)?, lx);
+        // `bundled` compiles exactly this source
+        assert_eq!(languages::by_name(name), Some(*src), "{name}");
     }
     assert!(matches!(Lexer::bundled("klingon"), Err(Error::UnknownLanguage(_))));
     assert!(Lexer::bundled("TR").is_ok());
@@ -34,24 +35,32 @@ fn analyses_in_each_language() -> TestResult {
         ("english", "unhappiest", &["un<PFX:NEG>", "happy<ADJ>", "est<SUP>"], "un|happi|est"),
         ("turkish", "evlerde", &["ev<N>", "lAr<PL>", "DA<LOC>"], "ev|ler|de"),
         ("turkish", "saatler", &["saat<N>", "lAr<PL>"], "saat|ler"),
-        ("spanish", "luces", &["luz<N>", "S<PL>"], "luc|es"),
-        ("french", "chevaux", &["cheval<N>", "x<PL>"], "chevau|x"),
+        ("spanish", "cantábamos", &["cantar<V>", "ábamos<IND;PST;IPFV;1;PL>"], "cant|ábamos"),
+        ("french", "chevaux", &["cheval<N>", "ux<MASC;PL>"], "cheva|ux"),
         ("igbo", "ịga", &["I<INF>", "ga<V:go>"], "ị|ga"),
         ("igbo", "iri", &["I<INF>", "ri<V:eat>"], "i|ri"),
         ("igbo", "gara", &["ga<V:go>", "rV<PST>"], "ga|ra"),
     ];
+    // one compile per language: the bundled lexicons are large
+    let mut lexers = std::collections::BTreeMap::new();
+    for &(lang, ..) in cases {
+        if !lexers.contains_key(lang) {
+            lexers.insert(lang, Lexer::bundled(lang)?);
+        }
+    }
     for &(lang, w, tags, seg) in cases {
-        let lx = Lexer::bundled(lang)?;
-        let (got, s) = best(&lx, w).ok_or(format!("{lang} rejected {w}"))?;
+        let lx = lexers.get(lang).ok_or(lang)?;
+        let (got, s) = best(lx, w).ok_or(format!("{lang} rejected {w}"))?;
         assert_eq!(got, tags, "{lang} {w}");
         assert_eq!(s, seg, "{lang} {w}");
     }
     // disharmonic forms are rejected
     for (lang, w) in [("turkish", "evlarda"), ("turkish", "saatlar"), ("igbo", "iga"), ("igbo", "ịri")] {
-        assert!(best(&Lexer::bundled(lang)?, w).is_none(), "{lang} accepted {w}");
+        assert!(best(lexers.get(lang).ok_or(lang)?, w).is_none(), "{lang} accepted {w}");
     }
     // Korean: Hangul in, jamo-level morphology, Hangul out for display
-    let ko = Lexer::bundled("korean")?;
+    // (the demo grammar, whose endings carry glosses)
+    let ko = Lexer::compile(include_str!("fixtures/korean.morph"))?;
     let out = ko.lex_text("학교에서 먹었다", Mode::Strict);
     let toks: Vec<String> = out.iter().flat_map(|(_, o)| o.tokens()).collect();
     assert_eq!(toks, ["학교<N>", "에서<LOC.SRC>", "먹<V>", "EOᆻ<PST>", "다<DECL>"]);
@@ -146,8 +155,9 @@ fn a_lexer_comes_straight_from_unimorph_tables() -> TestResult {
 
 #[test]
 fn exceptions_are_learned_from_raw_text() -> TestResult {
-    let hand = Lexer::bundled("turkish")?;
-    let spec = languages::TURKISH.replace(" @set:vow=fu", "") + "\nINDUCE vow IN Nouns Adjs\n";
+    let demo = include_str!("fixtures/turkish.morph");
+    let hand = Lexer::compile(demo)?;
+    let spec = demo.replace(" @set:vow=fu", "") + "\nINDUCE vow IN Nouns Adjs\n";
     let corpus = include_str!("../data/turkish_corpus.txt");
     let (learned, ind) = Lexer::compile_with_corpus(&spec, corpus)?;
     let mut got: Vec<&str> = ind.exceptions().map(|d| d.surface.as_str()).collect();

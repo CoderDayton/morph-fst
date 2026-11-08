@@ -1,0 +1,242 @@
+! =====================================================================
+!  Spanish for morph-fst: the hand-written half of spanish.morph
+! ---------------------------------------------------------------------
+!  Function words and context rules. The open classes (nouns,
+!  adjectives, verbs) are generated from the RLA-ES Hunspell dictionary
+!  by examples/build_spanish.rs at the GENERATED marker below.
+!  Regenerate data/spanish.morph after editing this file.
+! =====================================================================
+
+OPTION max_morph_chars 48
+
+! ---------------------------------------------------------------------
+!  Context: learned by `cargo run --release --example treebank -- learn`
+!  on UD Spanish AnCora train, stopped on dev. The first rule that
+!  applies decides; "x" is a lemma.
+! ---------------------------------------------------------------------
+PREFER CONJ AFTER V
+PREFER CONJ AFTER ADP
+PREFER ADJ OVER N AFTER N
+PREFER N AFTER DET
+PREFER V AFTER PRON
+PREFER CONJ BEFORE DET
+PREFER PRON BEFORE V
+PREFER ADJ OVER N AFTER ADV
+PREFER CONJ AFTER ADV
+PREFER PRON BEFORE PRON
+PREFER N BEFORE PUNCT
+PREFER N BEFORE NAME
+PREFER CONJ AFTER CONJ
+PREFER ADV BEFORE ADV
+PREFER N BEFORE "y"
+
+LEXICON Root
+  0 Closed ;
+  0 Irregular ;
+  0 Words ;
+
+! surface:lemma pairs list a form under its lemma (la -> el)
+LEXICON Closed
+  el          DET   # ;
+  la:el       DET   # ;
+  los:el      DET   # ;
+  las:el      DET   # ;
+  lo:el       DET   # ;
+  un:uno      DET   # ;
+  una:uno     DET   # ;
+  unos:uno    DET   # ;
+  unas:uno    DET   # ;
+  este        DET   # ;
+  esta:este   DET   # ;
+  estos:este  DET   # ;
+  estas:este  DET   # ;
+  ese         DET   # ;
+  esa:ese     DET   # ;
+  esos:ese    DET   # ;
+  esas:ese    DET   # ;
+  aquel       DET   # ;
+  aquella:aquel   DET  # ;
+  aquellos:aquel  DET  # ;
+  aquellas:aquel  DET  # ;
+  su          DET   # ;
+  sus:su      DET   # ;
+  mi          DET   # ;
+  mis:mi      DET   # ;
+  tu          DET   # ;
+  tus:tu      DET   # ;
+  nuestro     DET   # ;
+  nuestra:nuestro   DET  # ;
+  nuestros:nuestro  DET  # ;
+  nuestras:nuestro  DET  # ;
+  todo        DET   # ;
+  toda:todo   DET   # ;
+  todos:todo  DET   # ;
+  todas:todo  DET   # ;
+  otro        DET   # ;
+  otra:otro   DET   # ;
+  otros:otro  DET   # ;
+  otras:otro  DET   # ;
+  mucho       DET   # ;
+  mucha:mucho DET   # ;
+  muchos:mucho  DET  # ;
+  muchas:mucho  DET  # ;
+  pocos:poco  DET   # ;
+  pocas:poco  DET   # ;
+  cada        DET   # ;
+  varios:vario    DET  # ;
+  varias:vario    DET  # ;
+  algún:alguno    DET  # ;
+  alguna:alguno   DET  # ;
+  algunos:alguno  DET  # ;
+  algunas:alguno  DET  # ;
+  ningún:ninguno  DET  # ;
+  ninguna:ninguno DET  # ;
+  ambos       DET   # ;
+  ambas:ambos DET   # ;
+  cuyo        DET   # ;
+  cuya:cuyo   DET   # ;
+  qué         DET   # ;
+  cuánto      DET   # ;
+
+  yo          PRON  # ;
+  tú          PRON  # ;
+  él          PRON  # ;
+  ella:él     PRON  # ;
+  ello:él     PRON  # ;
+  nosotros    PRON  # ;
+  nosotras:nosotros  PRON  # ;
+  vosotros    PRON  # ;
+  ellos:él    PRON  # ;
+  ellas:él    PRON  # ;
+  usted       PRON  # ;
+  ustedes:usted   PRON  # ;
+  me:yo       PRON  # ;
+  mí:yo       PRON  # ;
+  te:tú       PRON  # ;
+  ti:tú       PRON  # ;
+  se:él       PRON  # ;
+  sí:él       PRON  # ;
+  le:él       PRON  # ;
+  les:él      PRON  # ;
+  lo:él       PRON  # ;
+  la:él       PRON  # ;
+  los:él      PRON  # ;
+  las:él      PRON  # ;
+  nos:yo      PRON  # ;
+  os:tú       PRON  # ;
+  que         PRON  # ;
+  quien       PRON  # ;
+  quienes:quien  PRON  # ;
+  cual        PRON  # ;
+  cuales:cual PRON  # ;
+  quién       PRON  # ;
+  cuál        PRON  # ;
+  donde       PRON  # ;
+  esto:este   PRON  # ;
+  eso:ese     PRON  # ;
+  aquello:aquel   PRON  # ;
+  algo        PRON  # ;
+  nada        PRON  # ;
+  alguien     PRON  # ;
+  nadie       PRON  # ;
+  uno         PRON  # ;
+
+  a           ADP   # ;
+  ante        ADP   # ;
+  bajo        ADP   # ;
+  con         ADP   # ;
+  contra      ADP   # ;
+  de          ADP   # ;
+  desde       ADP   # ;
+  durante     ADP   # ;
+  en          ADP   # ;
+  entre       ADP   # ;
+  hacia       ADP   # ;
+  hasta       ADP   # ;
+  mediante    ADP   # ;
+  para        ADP   # ;
+  por         ADP   # ;
+  según       ADP   # ;
+  sin         ADP   # ;
+  sobre       ADP   # ;
+  tras        ADP   # ;
+  ! contractions: a + el, de + el
+  al:a        ADP   # ;
+  del:de      ADP   # ;
+
+  y           CONJ  # ;
+  e           CONJ  # ;
+  o           CONJ  # ;
+  u           CONJ  # ;
+  ni          CONJ  # ;
+  pero        CONJ  # ;
+  sino        CONJ  # ;
+  que         CONJ  # ;
+  si          CONJ  # ;
+  porque      CONJ  # ;
+  aunque      CONJ  # ;
+  como        CONJ  # ;
+  cuando      CONJ  # ;
+  mientras    CONJ  # ;
+  pues        CONJ  # ;
+
+  no          ADV   # ;
+  sí          ADV   # ;
+  muy:mucho   ADV   # ;
+  más         ADV   # ;
+  menos       ADV   # ;
+  ya          ADV   # ;
+  también     ADV   # ;
+  tampoco     ADV   # ;
+  así         ADV   # ;
+  aquí        ADV   # ;
+  allí        ADV   # ;
+  ahí         ADV   # ;
+  allá        ADV   # ;
+  ahora       ADV   # ;
+  hoy         ADV   # ;
+  ayer        ADV   # ;
+  mañana      ADV   # ;
+  siempre     ADV   # ;
+  nunca       ADV   # ;
+  todavía     ADV   # ;
+  aún         ADV   # ;
+  bien        ADV   # ;
+  mal         ADV   # ;
+  casi        ADV   # ;
+  solo        ADV   # ;
+  sólo        ADV   # ;
+  tan         ADV   # ;
+  tanto       ADV   # ;
+  luego       ADV   # ;
+  después     ADV   # ;
+  antes       ADV   # ;
+  además      ADV   # ;
+  dentro      ADV   # ;
+  fuera       ADV   # ;
+  cerca       ADV   # ;
+  lejos       ADV   # ;
+  entonces    ADV   # ;
+  quizá       ADV   # ;
+  quizás      ADV   # ;
+  apenas      ADV   # ;
+  encima      ADV   # ;
+  donde       ADV   # ;
+  cómo        ADV   # ;
+  dónde       ADV   # ;
+  cuándo      ADV   # ;
+
+  dos         NUM   # ;
+  tres        NUM   # ;
+  cuatro      NUM   # ;
+  cinco       NUM   # ;
+  seis        NUM   # ;
+  siete       NUM   # ;
+  ocho        NUM   # ;
+  nueve       NUM   # ;
+  diez        NUM   # ;
+  cien        NUM   # ;
+  ciento      NUM   # ;
+  mil         NUM   # ;
+
+!@GENERATED

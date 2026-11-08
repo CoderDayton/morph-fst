@@ -50,12 +50,12 @@ pub enum Mode {
 /// ```
 /// use morph_fst::{Lexer, Mode, WordOutput};
 ///
-/// let lx = Lexer::bundled("turkish")?;
-/// let out = lx.lex("evlerde", Mode::Strict);
+/// let lx = Lexer::bundled("english")?;
+/// let out = lx.lex("cats", Mode::Strict);
 /// assert!(matches!(out, WordOutput::Analyzed { .. }));
 /// if let WordOutput::Analyzed { best, .. } = out {
 ///     let tags: Vec<&str> = best.iter().map(|m| m.tag.as_str()).collect();
-///     assert_eq!(tags, ["N", "PL", "LOC"]);
+///     assert_eq!(tags, ["N", "PL"]);
 /// }
 /// # Ok::<(), morph_fst::Error>(())
 /// ```

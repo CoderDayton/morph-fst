@@ -11,6 +11,7 @@ OPTION harmony surface|underlying     ! what harmony reads (default: surface)
 OPTION induce_min_count 2             ! evidence needed to learn an exception
 OPTION derivation PFX,NMLZ,AGENT      ! tags that are derivation, not inflection (`Word::lemma` keeps them)
 OPTION strip_vowel_marks true         ! drop Hebrew niqqud and Arabic harakat (set by the generator when the tables use them)
+OPTION prefer_inflection false        ! keep a listed word whole instead of ranking stem + ending above it (default: true)
 PREFER V,MOD AFTER MOD,"to"           ! context: see below
 CLASS VOWELISH = a e ı i o ö u ü {A} {I}      ! chars and archiphonemes
 

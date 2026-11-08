@@ -11,7 +11,7 @@
 
 use crate::error::{art_err, Result};
 
-pub const FORMAT_VERSION: u32 = 7;
+pub const FORMAT_VERSION: u32 = 8;
 
 #[derive(Default)]
 pub struct Writer {

@@ -207,6 +207,7 @@ pub(crate) struct Policy<'a> {
     derivation: &'a [String],
     open: Vec<String>,
     context: &'a [crate::spec::ContextRule],
+    prefer_inflection: bool,
 }
 
 impl<'a> Policy<'a> {
@@ -214,7 +215,7 @@ impl<'a> Policy<'a> {
         let mut open: Vec<String> = mt.classes.iter().filter_map(|c| c.open_tag.clone()).collect();
         open.sort();
         open.dedup();
-        Policy { derivation: &mt.derivation, open, context: &mt.context }
+        Policy { derivation: &mt.derivation, open, context: &mt.context, prefer_inflection: mt.prefer_inflection }
     }
 
     /// The grammar's `PREFER` rules over a sentence, left to right: a word
@@ -266,11 +267,12 @@ impl<'a> Policy<'a> {
 
     /// Among equally good readings, a productive stem + inflection (`go` +
     /// `ing`) outranks an open-class entry that is itself the inflected
-    /// spelling (`going<N>`). Order is otherwise kept.
+    /// spelling (`going<N>`), unless the grammar turns it off
+    /// (`OPTION prefer_inflection false`). Order is otherwise kept.
     fn rank(&self, readings: &mut [Vec<Part>]) {
         let inflected = |r: &[Part]| r.len() >= 2 && r.last().is_some_and(|p| p.known && !derivational(&p.tag, self.derivation));
         let lexicalized = |r: &[Part]| matches!(r, [p] if p.known && self.open.contains(&p.tag));
-        if readings.iter().any(|r| inflected(r)) {
+        if self.prefer_inflection && readings.iter().any(|r| inflected(r)) {
             readings.sort_by_key(|r| lexicalized(r));
         }
     }

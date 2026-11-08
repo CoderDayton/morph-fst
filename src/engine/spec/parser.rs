@@ -177,6 +177,7 @@ fn parse_option(o: &mut Options, toks: &[&str], line: usize) -> Result<()> {
         "apostrophe_in_words" => o.apostrophe_in_words = boolean(toks[2])?,
         "strip_tones" => o.strip_tones = boolean(toks[2])?,
         "strip_vowel_marks" => o.strip_vowel_marks = boolean(toks[2])?,
+        "prefer_inflection" => o.prefer_inflection = boolean(toks[2])?,
         "harmony" => {
             o.underlying = match toks[2] {
                 "surface" => false,

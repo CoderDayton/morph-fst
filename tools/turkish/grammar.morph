@@ -1,0 +1,372 @@
+! =====================================================================
+!  Turkish grammar for morph-fst: the hand-written half of turkish.morph
+! ---------------------------------------------------------------------
+!  Suffixes, harmony, spelling rules and a few function words. The
+!  lexicon (nouns, adjectives, verbs and the other word classes) is
+!  generated from Zemberek-NLP (Apache-2.0) by examples/build_turkish.rs
+!  at the GENERATED marker below. Regenerate data/turkish.morph after
+!  editing this file.
+!
+!  Vowel harmony is long-distance: every suffix vowel agrees with the
+!  last vowel before it, however many suffixes back. The context register
+!  tracks two features of the surface text seen so far:
+!     vow  : backness/rounding of the last vowel  (bu br fu fr)
+!     coda : type of the last character            (v vl vd)
+!  Archiphonemes in suffixes read it:
+!     {A} a/e   {I} ı/i/u/ü   {Ix} {I} or nothing after a vowel
+!     {D} d/t   {C} c/ç   {Y} {S} {N} buffer consonants after vowels
+! =====================================================================
+
+OPTION max_morph_chars 48
+OPTION case turkish
+! Listed words are not second-guessed as stem + ending (`para`, not `par` + `a`).
+OPTION prefer_inflection false
+
+! ---------------------------------------------------------------------
+!  Context: learned by `cargo run --release --example treebank -- learn`
+!  on UD Turkish BOUN train, stopped on dev. The first rule that applies
+!  decides; "x" is a lemma.
+! ---------------------------------------------------------------------
+PREFER V BEFORE "."
+PREFER ADV AFTER N
+PREFER DET BEFORE N
+PREFER ADV BEFORE V
+PREFER ADV BEFORE ADJ
+PREFER ADJ OVER N BEFORE "bir"
+PREFER ADV BEFORE ADV
+PREFER POSTP OVER N AFTER V
+
+CLASS V        = a e ı i o ö u ü â î û
+CLASS C        = b c ç d f g ğ h j k l m n p r s ş t v y z
+CLASS AE       = a e
+CLASS HV       = ı i u ü
+CLASS VOWELISH = a e ı i o ö u ü {A} {Ax} {I} {Ix} {Y} {S} {N}
+
+FEATURE vow
+  a ı â -> bu
+  o u û -> br
+  e i î -> fu
+  ö ü -> fr
+
+FEATURE coda
+  [V] -> v
+  ç f h k p s ş t -> vl
+  [*] -> vd
+
+ARCHI A
+  vow=bu|br -> a
+  * -> e
+
+! the aorist's a/e, dropped after a vowel (yap-ar, de-r)
+ARCHI Ax
+  coda=v -> 0
+  vow=bu|br -> a
+  * -> e
+
+ARCHI I
+  vow=bu -> ı
+  vow=br -> u
+  vow=fr -> ü
+  * -> i
+
+ARCHI Ix
+  coda=v -> 0
+  vow=bu -> ı
+  vow=br -> u
+  vow=fr -> ü
+  * -> i
+
+ARCHI D
+  coda=vl -> t
+  * -> d
+
+ARCHI C
+  coda=vl -> ç
+  * -> c
+
+ARCHI Y
+  coda=v -> y
+  * -> 0
+
+! a buffer y before a consonant (evde-y-di, ev-di): unlike {Y}, it does not
+! make the stem's final consonant voice (kitap-la, not *kitab-la)
+ARCHI Yc
+  coda=v -> y
+  * -> 0
+
+ARCHI S
+  coda=v -> s
+  * -> 0
+
+ARCHI N
+  coda=v -> n
+  * -> 0
+
+! function words first: among equal readings, the earlier lexicon wins
+LEXICON Root
+  0 Closed ;
+  0 Words ;
+  0 Nouns ;
+  0 Adjs ;
+  0 Verbs ;
+
+LEXICON Closed
+  ve      CONJ  # ;
+  ama     CONJ  # ;
+  bir     DET   # ;
+  bu      DEM   Dem ;
+  şu      DEM   Dem ;
+  o       DEM   Dem ;
+  ben     PRON  PronCase ;
+  sen     PRON  PronCase ;
+  bana:ben PRON DatZero ;
+  sana:sen PRON DatZero ;
+  biz     PRON  PronReg ;
+  siz     PRON  PronReg ;
+  çok     ADV   # ;
+  değil   NEG   QCont ;
+  mi      Q     QCont ;
+  mı      Q     QCont ;
+  mu      Q     QCont ;
+  mü      Q     QCont ;
+
+! bu, şu, o take a pronominal n before case (bunu, onun, şunda)
+LEXICON Dem
+  0 # ;
+  n{I}       ACC   # ;
+  n{I}n      GEN   # ;
+  n{A}       DAT   # ;
+  n{D}{A}    LOC   # ;
+  n{D}{A}n   ABL   # ;
+  n{I}nl{A}  INS   # ;
+  nl{A}r     PL    Case ;
+
+! ben and sen have their own datives (bana, sana)
+LEXICON PronReg
+  {Y}{A}     DAT   # ;
+  0 PronCase ;
+
+LEXICON PronCase
+  0 # ;
+  {I}        ACC   # ;
+  {I}m       GEN   # ;
+  {D}{A}     LOC   # ;
+  {D}{A}n    ABL   # ;
+  {I}ml{A}   INS   # ;
+
+LEXICON DatZero
+  0 DAT # ;
+
+! the question particle and değil take person and copula (misin, değildi)
+LEXICON QCont
+  0 # ;
+  {Y}{I}m      1SG       # ;
+  s{I}n        2SG       # ;
+  {Y}{I}z      1PL       # ;
+  s{I}n{I}z    2PL       # ;
+  {Yc}{D}{I}    PST.COP   PersK ;
+  {Yc}m{I}ş     EVID.COP  PersZ ;
+  {D}{I}r      COP       # ;
+
+! ---------------------------------------------------------------------
+!  Generated: LEXICON Nouns @open=N, Adjs @open=ADJ, Verbs @open=V (stems,
+!  continuing to NounCont / VerbCont) and Words (other word classes, whole).
+!  Flags: @soft final p ç t k voice before a vowel; @drop high vowel drops
+!  before a vowel; @dbl final consonant doubles; @set:vow=.. exceptional
+!  harmony.
+! ---------------------------------------------------------------------
+!@GENERATED
+
+LEXICON NounCont
+  0 Plural ;
+  0 NounDeriv ;
+
+LEXICON NounDeriv
+  {C}{I}     AGT       Plural ;
+  l{I}k      ABST      Plural @soft ;
+  s{I}z      PRIV      AdjEnd ;
+  l{I}       WITH      AdjEnd ;
+
+LEXICON AdjEnd
+  0 # ;
+  l{I}k      ABST      Plural @soft ;
+
+LEXICON Plural
+  l{A}r      PL        PossPl ;
+  0 Poss ;
+
+LEXICON Poss
+  0 PossCommon ;
+  l{A}r{I}   P3PL      Case3 ;
+
+LEXICON PossPl
+  0 PossCommon ;
+
+LEXICON PossCommon
+  {Ix}m      P1SG      Case ;
+  {Ix}n      P2SG      Case ;
+  {S}{I}     P3SG      Case3 ;
+  {Ix}m{I}z  P1PL      Case ;
+  {Ix}n{I}z  P2PL      Case ;
+  0 Case ;
+
+LEXICON Case
+  {Y}{I}     ACC       # ;
+  {Y}{A}     DAT       # ;
+  {D}{A}     LOC       LocCont ;
+  {D}{A}n    ABL       # ;
+  {N}{I}n    GEN       # ;
+  {Y}l{A}    INS       # ;
+  0 NounFin ;
+
+! after the locative: -ki makes an adjective (evdeki, içindekiler)
+LEXICON LocCont
+  ki         REL       NounCont ;
+  0 NounFin ;
+
+! a noun as predicate: copula (evdir, evdeydi, öğretmenmiş, evdeyken)
+LEXICON NounFin
+  0 # ;
+  {D}{I}r    COP       # ;
+  {Yc}{D}{I}  PST.COP   PersK ;
+  {Yc}m{I}ş   EVID.COP  PersZ ;
+  {Yc}s{A}    COND.COP  PersK ;
+  {Yc}k{A}n   WHILE     # ;
+
+! after a 3rd-person possessive: pronominal n
+LEXICON Case3
+  n{I}       ACC       # ;
+  n{A}       DAT       # ;
+  n{D}{A}    LOC       LocCont ;
+  n{D}{A}n   ABL       # ;
+  n{I}n      GEN       # ;
+  {Y}l{A}    INS       # ;
+  0 NounFin ;
+
+! ---------------------------------------------------------------------
+!  Verbs
+! ---------------------------------------------------------------------
+! Verb stems continue to VerbCont (aorist -Ir: gel-ir, oku-r) or
+! VerbContA (aorist -Ar: yap-ar, de-r); the generator picks one.
+LEXICON VerbCont
+  {Ix}r      AOR       VerbFin ;
+  0 Voice ;
+
+LEXICON VerbContA
+  {Ax}r      AOR       VerbFin ;
+  0 Voice ;
+
+! passive and causative (yap-ıl, oku-n, yap-tır, yap-tır-ıl)
+LEXICON Voice
+  {I}l       PASS      VoiceDone ;
+  {Ix}n      PASS      VoiceDone ;
+  {D}{I}r    CAUS      VoicePass ;
+  0 VerbBody ;
+
+LEXICON VoicePass
+  {I}l       PASS      VoiceDone ;
+  0 VoiceDone ;
+
+! a derived stem takes the -Ir aorist (yapılır, yaptırır)
+LEXICON VoiceDone
+  {Ix}r      AOR       VerbFin ;
+  0 VerbBody ;
+
+LEXICON VerbBody
+  {Y}{A}bil  ABIL      AfterAbil ;
+  0 Neg ;
+
+LEXICON AfterAbil
+  {Ix}r      AOR       VerbFin ;
+  0 Neg ;
+
+LEXICON Neg
+  m{A}       NEG       NegTense ;
+  {Y}{A}m{A} NEG.ABIL  NegTense ;
+  0 Tense ;
+
+! the negative aorist: gel-me-z, gel-me-m, gel-me-yiz
+LEXICON NegTense
+  z          AOR       VerbFin ;
+  0          AOR       NegAor1 ;
+  0 Tense ;
+
+LEXICON NegAor1
+  m          1SG       # ;
+  {Y}{I}z    1PL       # ;
+
+LEXICON Tense
+  {Ix}yor      PROG      VerbFin ;
+  {D}{I}       PST       PersK ;
+  m{I}ş        EVID      VerbFin ;
+  {Y}{A}c{A}k  FUT       VerbFin @soft ;
+  s{A}         COND      PersK ;
+  m{A}l{I}     NEC       VerbFin ;
+  {Y}{A}       OPT       PersOpt ;
+  0            IMP       PersImp ;
+  m{A}k        INF       Case ;
+  m{A}         VN        NounCont ;
+  {Y}{I}ş      VN        NounCont ;
+  {Y}{A}n      PTCP      NounCont ;
+  {D}{I}k      PTCP.PST  NounCont @soft ;
+  {Y}{A}c{A}k  PTCP.FUT  NounCont @soft ;
+  {Y}{I}p      CVB       # ;
+  {Y}{A}r{A}k  CVB       # ;
+  {Y}{I}nc{A}  CVB       # ;
+  m{A}d{A}n    CVB.NEG   # ;
+  {Y}{A}l{I}   CVB       # ;
+
+! after a tense that takes z-paradigm persons: copula, then person
+! (geliyordu, gelirse, gelirken, gelmişsin)
+LEXICON VerbFin
+  {Yc}{D}{I}    PST.COP   PersK ;
+  {Yc}m{I}ş     EVID.COP  PersZ ;
+  {Yc}s{A}      COND.COP  PersK ;
+  {Yc}k{A}n     WHILE     # ;
+  0 PersZ ;
+
+LEXICON PersOpt
+  {Y}{I}m      1SG       # ;
+  l{I}m        1PL       # ;
+  0 # ;
+
+LEXICON PersImp
+  0 # ;
+  {Ix}n        2PL       # ;
+  {Ix}n{I}z    2PL       # ;
+  s{I}n        3SG       # ;
+  s{I}nl{A}r   3PL       # ;
+
+! z-paradigm person endings
+LEXICON PersZ
+  {Y}{I}m      1SG     # ;
+  s{I}n        2SG     # ;
+  {Y}{I}z      1PL     # ;
+  s{I}n{I}z    2PL     # ;
+  l{A}r        3PL     # ;
+  {D}{I}r      COP     # ;
+  0 # ;
+
+! k-paradigm person endings (after the past tense)
+LEXICON PersK
+  m            1SG     # ;
+  n            2SG     # ;
+  k            1PL     # ;
+  n{I}z        2PL     # ;
+  l{A}r        3PL     # ;
+  0 # ;
+
+! ---------------------------------------------------------------------
+RULES
+  prog_del:  [AE] -> 0  / _ +{{Ix}yor} ;
+  nk:        k -> g     / n _ +[VOWELISH] @soft ;
+  soft_k:    k -> ğ     / _ +[VOWELISH] @soft ;
+  soft_p:    p -> b     / _ +[VOWELISH] @soft ;
+  soft_t:    t -> d     / _ +[VOWELISH] @soft ;
+  soft_c:    ç -> c     / _ +[VOWELISH] @soft ;
+  vdrop:     [HV] -> 0  / _ [C] +[VOWELISH] @drop ;
+  dbl:       . -> $$    / _ +[VOWELISH] @dbl ;
+
+PIECES
+  . , : ? ' " ( ) - /
+  0 1 2 3 4 5 6 7 8 9 ##0 ##1 ##2 ##3 ##4 ##5 ##6 ##7 ##8 ##9

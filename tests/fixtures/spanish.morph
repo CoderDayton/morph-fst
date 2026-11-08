@@ -1,0 +1,256 @@
+! =====================================================================
+!  spanish.morph — Spanish demo lexicon for morph-fst
+! ---------------------------------------------------------------------
+!  Context register: `fin` = was the last character a vowel?
+!  {S} plural: -s after a vowel, -es after a consonant.
+!  Rules apply sequentially in spec order, so several can rewrite one
+!  stem before the same suffix (empez+e → empiez → empiec+e = empiece).
+! =====================================================================
+
+OPTION max_morph_chars 48
+
+CLASS V    = a e i o u á é í ó ú ü
+CLASS C    = b c d f g h j k l m n ñ p q r s t v w x y z
+CLASS E    = e é
+CLASS ZC   = e é {S}
+CLASS NS   = n s
+CLASS PB   = p b
+CLASS AO   = a o
+
+FEATURE fin
+  [V] -> v
+  [*] -> c
+
+ARCHI S
+  fin=v -> s
+  * -> es
+
+LEXICON Root
+  0 Prefixed ;
+  0 Nouns ;
+  0 Adjs ;
+  0 Verbs ;
+  0 Closed ;
+
+LEXICON Closed
+  el     DET   # ;
+  la     DET   # ;
+  los    DET   # ;
+  las    DET   # ;
+  un     DET   # ;
+  una    DET   # ;
+  y      CONJ  # ;
+  o      CONJ  # ;
+  de     PREP  # ;
+  en     PREP  # ;
+  con    PREP  # ;
+  por    PREP  # ;
+  para   PREP  # ;
+  que    CONJ  # ;
+  no     NEG   # ;
+  muy    ADV   # ;
+
+! ---------------------------------------------------------------------
+!  Nouns
+! ---------------------------------------------------------------------
+LEXICON Nouns @open=N
+  casa       N  NounV ;
+  perro      N  NounV ;
+  gato       N  NounV ;
+  mesa       N  NounV ;
+  libro      N  NounV ;
+  coche      N  Plural ;
+  hombre     N  Plural ;
+  noche      N  Plural ;
+  mujer      N  Plural ;
+  ciudad     N  Plural ;
+  flor       N  Plural ;
+  árbol      N  Plural ;
+  papel      N  Plural ;
+  reloj      N  Plural ;
+  rey        N  Plural ;
+  ley        N  Plural ;
+  mes        N  Plural ;
+  país       N  Plural ;
+  canción    N  Plural ;
+  lección    N  Plural ;
+  nación     N  Plural ;
+  camión     N  Plural ;
+  autobús    N  Plural ;
+  luz        N  Plural ;
+  lápiz      N  Plural ;
+  vez        N  Plural ;
+  voz        N  Plural ;
+  pez        N  Plural ;
+  sofá       N  Plural ;
+
+! vowel-final nouns also take the diminutive (casa → casita)
+LEXICON NounV
+  0 Plural ;
+  ita    DIM    Plural ;
+  ito    DIM    Plural ;
+
+LEXICON Plural
+  {S}    PL     # ;
+  0 # ;
+
+! ---------------------------------------------------------------------
+!  Adjectives
+! ---------------------------------------------------------------------
+LEXICON Adjs @open=ADJ
+  rápid:rápido      ADJ  AdjGen ;
+  lent:lento        ADJ  AdjGen ;
+  bonit:bonito      ADJ  AdjGen ;
+  nuev:nuevo        ADJ  AdjGen ;
+  clar:claro        ADJ  AdjGen ;
+  posible           ADJ  AdjInv ;
+  grande            ADJ  AdjInv ;
+  fácil             ADJ  AdjInv ;
+  feliz             ADJ  AdjInv ;
+  legal             ADJ  AdjInv ;
+  real              ADJ  AdjInv ;
+  inglés            ADJ  AdjGent ;
+  francés           ADJ  AdjGent ;
+  alemán            ADJ  AdjGent ;
+
+! in- negation; assimilates: im-posible, i-legal, ir-real
+LEXICON Prefixed
+  in     NEG    Adjs ;
+
+LEXICON AdjGen
+  o      MASC   Plural ;
+  a      FEM    AdjFem ;
+
+LEXICON AdjFem
+  {S}    PL     # ;
+  mente  ADV    # ;
+  0 # ;
+
+LEXICON AdjInv
+  {S}    PL     # ;
+  mente  ADV    # ;
+  0 # ;
+
+LEXICON AdjGent
+  {S}    PL     # ;
+  a      FEM    Plural ;
+  0 # ;
+
+! ---------------------------------------------------------------------
+!  Verbs (stems; lemma = infinitive). @ie @ue @i: stem vowel changes
+! ---------------------------------------------------------------------
+LEXICON Verbs @open=V
+  habl:hablar        V  VerbAr ;
+  cant:cantar        V  VerbAr ;
+  trabaj:trabajar    V  VerbAr ;
+  estudi:estudiar    V  VerbAr ;
+  compr:comprar      V  VerbAr ;
+  tom:tomar          V  VerbAr ;
+  lleg:llegar        V  VerbAr ;
+  pag:pagar          V  VerbAr ;
+  busc:buscar        V  VerbAr ;
+  toc:tocar          V  VerbAr ;
+  pens:pensar        V  VerbAr @ie ;
+  cerr:cerrar        V  VerbAr @ie ;
+  empez:empezar      V  VerbAr @ie ;
+  comenz:comenzar    V  VerbAr @ie ;
+  cont:contar        V  VerbAr @ue ;
+  encontr:encontrar  V  VerbAr @ue ;
+  record:recordar    V  VerbAr @ue ;
+  almorz:almorzar    V  VerbAr @ue ;
+  com:comer          V  VerbEr ;
+  beb:beber          V  VerbEr ;
+  vend:vender        V  VerbEr ;
+  aprend:aprender    V  VerbEr ;
+  corr:correr        V  VerbEr ;
+  entend:entender    V  VerbEr @ie ;
+  volv:volver        V  VerbEr @ue ;
+  viv:vivir          V  VerbIr ;
+  escrib:escribir    V  VerbIr ;
+  abr:abrir          V  VerbIr ;
+  sub:subir          V  VerbIr ;
+  decid:decidir      V  VerbIr ;
+  ped:pedir          V  VerbIr @i ;
+  repet:repetir      V  VerbIr @i ;
+  serv:servir        V  VerbIr @i ;
+
+LEXICON VerbAr
+  ar     INF        # ;
+  ando   GER        # ;
+  ado    PTCP       # ;
+  o      PRS.1SG    # ;
+  as     PRS.2SG    # ;
+  a      PRS.3SG    # ;
+  amos   PRS/PRT.1PL # ;
+  áis    PRS.2PL    # ;
+  an     PRS.3PL    # ;
+  é      PRT.1SG    # ;
+  aste   PRT.2SG    # ;
+  ó      PRT.3SG    # ;
+  asteis PRT.2PL    # ;
+  aron   PRT.3PL    # ;
+  e      SBJV.1/3SG # ;
+  es     SBJV.2SG   # ;
+  emos   SBJV.1PL   # ;
+  éis    SBJV.2PL   # ;
+  en     SBJV.3PL   # ;
+
+LEXICON VerbEr
+  er     INF        # ;
+  o      PRS.1SG    # ;
+  es     PRS.2SG    # ;
+  e      PRS.3SG    # ;
+  emos   PRS.1PL    # ;
+  éis    PRS.2PL    # ;
+  en     PRS.3PL    # ;
+  0 VerbErIr ;
+
+LEXICON VerbIr
+  ir     INF        # ;
+  o      PRS.1SG    # ;
+  es     PRS.2SG    # ;
+  e      PRS.3SG    # ;
+  imos   PRS/PRT.1PL # ;
+  ís     PRS.2PL    # ;
+  en     PRS.3PL    # ;
+  0 VerbErIr ;
+
+LEXICON VerbErIr
+  iendo  GER        # ;
+  ido    PTCP       # ;
+  í      PRT.1SG    # ;
+  iste   PRT.2SG    # ;
+  ió     PRT.3SG    # ;
+  isteis PRT.2PL    # ;
+  ieron  PRT.3PL    # ;
+  a      SBJV.1/3SG # ;
+  as     SBJV.2SG   # ;
+  amos   SBJV.1PL   # ;
+  áis    SBJV.2PL   # ;
+  an     SBJV.3PL   # ;
+
+! ---------------------------------------------------------------------
+RULES
+  ! stem changes in stressed stems (order matters: they feed c/qu, z/c)
+  e_ie:    e -> ie / _ [C]+ +{o,as,a,an,es,e,en} @ie ;
+  o_ue:    o -> ue / _ [C]+ +{o,as,a,an,es,e,en} @ue ;
+  e_i:     e -> i  / _ [C]+ +{o,es,e,en,a,as,an,amos,áis,ió,ieron,iendo} @i ;
+  ! orthography before front vowels (c/qu before z/c so z→c does not feed it)
+  c_qu:    c -> qu / _ +[E] ;
+  g_gu:    g -> gu / _ +[E] ;
+  z_c:     z -> c  / _ +[ZC] ;
+  ! written accent drops when the plural/feminine adds a syllable
+  acc_a:   á -> a  / _ [NS] +{{S},a} ;
+  acc_e:   é -> e  / _ [NS] +{{S},a} ;
+  acc_o:   ó -> o  / _ [NS] +{{S},a} ;
+  acc_u:   ú -> u  / _ [NS] +{{S},a} ;
+  ! diminutive replaces the final vowel
+  dim:     [AO] -> 0 / _ +{ita,ito} ;
+  ! in- assimilation
+  in_im:   n -> m  / i _ +[PB] ;
+  in_il:   n -> 0  / i _ +{legal} ;
+  in_ir:   n -> r  / i _ +{real} ;
+
+PIECES
+  . , : ? ' " ( ) - / ¿ ¡
+  0 1 2 3 4 5 6 7 8 9 ##0 ##1 ##2 ##3 ##4 ##5 ##6 ##7 ##8 ##9

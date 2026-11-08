@@ -8,10 +8,14 @@ use morph_fst::induce::induce;
 use morph_fst::oracle::{self, Gloss};
 use morph_fst::rng::Rng;
 use morph_fst::spec::{self, parse_spec};
-use morph_fst::{languages, Segment, WordOutput};
+use morph_fst::{Segment, WordOutput};
 use std::collections::BTreeSet;
 
 type TestResult = Result<(), Box<dyn std::error::Error>>;
+
+/// The small hand-written Turkish grammar: few enough stems for the
+/// oracle to enumerate.
+const TURKISH: &str = include_str!("fixtures/turkish.morph");
 
 /// Opacity: `ï` is a front vowel underlyingly, but a rule turns it into
 /// `a` before the plural. Harmony (both the suffix, reading left, and the
@@ -135,7 +139,7 @@ fn underlying_harmony_is_opaque() -> TestResult {
 
 #[test]
 fn turkish_exceptions_are_learned_not_marked() -> TestResult {
-    let unmarked = languages::TURKISH.replace(" @set:vow=fu", "") + "\nINDUCE vow IN Nouns Adjs\n";
+    let unmarked = TURKISH.replace(" @set:vow=fu", "") + "\nINDUCE vow IN Nouns Adjs\n";
     let parsed = parse_spec(&unmarked)?;
     assert!(parsed.lexicons.iter().flat_map(|l| &l.entries).all(|e| !e.flags.iter().any(|f| f.starts_with("set:"))));
     let corpus = include_str!("../data/turkish_corpus.txt");
@@ -145,10 +149,10 @@ fn turkish_exceptions_are_learned_not_marked() -> TestResult {
         ["saat", "harf", "hayal", "kalp"].iter().map(|s| (s.to_string(), "set:vow=fu".to_string())).collect();
     assert_eq!(learned, want);
     // the learned lexer behaves exactly like the hand-marked one (strict)
-    let hand = Lexer::compile(languages::TURKISH)?;
+    let hand = Lexer::compile(TURKISH)?;
     let auto = Lexer::from_grammar(&spec::compile_grammar(&ind.spec)?);
     assert_eq!(hand.mt.entries, auto.mt.entries);
-    let words: Vec<String> = oracle::generate(&parse_spec(languages::TURKISH)?, 4, 50_000)?.surfaces.into_keys().collect();
+    let words: Vec<String> = oracle::generate(&parse_spec(TURKISH)?, 4, 50_000)?.surfaces.into_keys().collect();
     let mut rng = Rng::new(3);
     for _ in 0..20_000 {
         let mut w: Vec<char> = rng.pick(&words).chars().collect();
@@ -190,7 +194,7 @@ fn right_and_left_exceptions_are_learned_per_feature() -> TestResult {
 /// classes for the unknown stem are distinct readings.
 #[test]
 fn bare_head_readings_differ_by_guess() -> TestResult {
-    let tr = Lexer::compile(&(languages::TURKISH.to_string() + "\nINDUCE vow IN Nouns Adjs\n"))?;
+    let tr = Lexer::compile(&(TURKISH.to_string() + "\nINDUCE vow IN Nouns Adjs\n"))?;
     let Some(guesses) = (match tr.lex("evlar", Mode::Hybrid) {
         WordOutput::Hybrid { all, .. } => Some(
             all.iter()
@@ -212,11 +216,11 @@ fn bare_head_readings_differ_by_guess() -> TestResult {
 #[test]
 fn unknown_stems_infer_their_exception() -> TestResult {
     // left: Turkish loanword with INDUCE
-    let tr = Lexer::compile(&(languages::TURKISH.to_string() + "\nINDUCE vow IN Nouns Adjs\n"))?;
+    let tr = Lexer::compile(&(TURKISH.to_string() + "\nINDUCE vow IN Nouns Adjs\n"))?;
     assert_eq!(tr.lex("googlelar", Mode::Hybrid).render(), "⟨google⟩<?N vow=bu>{g ##o ##o ##g ##le} + lAr<PL>");
     assert_eq!(tr.lex("googlelerden", Mode::Hybrid).render(), "⟨google⟩<?N>{g ##o ##o ##g ##le} + lAr<PL> + DAn<ABL>");
     // without INDUCE the suffix cannot attach to a front-final unknown stem
-    let plain = Lexer::compile(languages::TURKISH)?;
+    let plain = Lexer::compile(TURKISH)?;
     let out = plain.lex("googlelar", Mode::Hybrid);
     assert!(!out.tokens().iter().any(|t| t.ends_with("<PL>")), "{}", out.render());
     // right: a prefix that disagrees with an unknown root's vowels

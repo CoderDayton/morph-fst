@@ -1,22 +1,27 @@
-//! Bundled language specs (the `.morph` sources), ready to compile:
+//! Bundled language specs (the `.morph` sources), packed into the library
+//! and ready to compile:
 //!
 //! ```
-//! let lexer = morph_fst::Lexer::compile(morph_fst::languages::TURKISH)?;
+//! let lexer = morph_fst::Lexer::compile(morph_fst::languages::ENGLISH)?;
 //! # Ok::<(), morph_fst::Error>(())
 //! ```
 //!
-//! They are compact demo lexicons (a few hundred morphemes each) showing the
-//! spec language; extend them or write your own.
+//! English, Turkish, Spanish, French and Korean carry full lexicons; Igbo
+//! is a compact demo lexicon showing the spec language.
 
 /// English: spelling rules (y→i, e-deletion, doubling, +es), derivation.
 pub const ENGLISH: &str = include_str!("../data/english.morph");
-/// Turkish: long-distance vowel harmony, consonant alternations.
+/// Turkish: long-distance vowel harmony, consonant alternations; lexicon
+/// from Zemberek-NLP (Apache-2.0).
 pub const TURKISH: &str = include_str!("../data/turkish.morph");
-/// Spanish: plural allomorphy, stem changes, orthographic alternations.
+/// Spanish: plural allomorphy, stem changes, orthographic alternations;
+/// lexicon from RLA-ES (MPL-1.1).
 pub const SPANISH: &str = include_str!("../data/spanish.morph");
-/// French: stem alternations, elision, feminine/plural morphology.
+/// French: stem alternations, elision, feminine/plural morphology;
+/// lexicon from Grammalecte (MPL-2.0).
 pub const FRENCH: &str = include_str!("../data/french.morph");
-/// Korean (Hangul → jamo): particle allomorphy, 아/어 harmony, irregulars.
+/// Korean (Hangul → jamo): particle allomorphy, 아/어 harmony, irregulars;
+/// lexicon from mecab-ko-dic (Apache-2.0).
 pub const KOREAN: &str = include_str!("../data/korean.morph");
 /// Igbo (simplified): ATR harmony in both directions.
 pub const IGBO: &str = include_str!("../data/igbo.morph");
@@ -31,7 +36,11 @@ pub const ALL: &[(&str, &str)] = &[
     ("igbo", IGBO),
 ];
 
-/// Look a bundled spec up by name (`"turkish"`, `"tr"`, ...).
+/// The names in [`ALL`], without pulling the specs into a binary that only
+/// needs the names (error messages).
+pub(crate) const NAMES: &[&str] = &["english", "turkish", "spanish", "french", "korean", "igbo"];
+
+/// Look a bundled spec up by name (`"english"`, `"tr"`, ...).
 pub fn by_name(name: &str) -> Option<&'static str> {
     let n = name.to_ascii_lowercase();
     let key = match n.as_str() {
@@ -44,4 +53,13 @@ pub fn by_name(name: &str) -> Option<&'static str> {
         other => other,
     };
     ALL.iter().find(|(k, _)| *k == key).map(|(_, s)| *s)
+}
+
+#[cfg(test)]
+mod tests {
+    #[test]
+    fn names_match_all() {
+        let all: Vec<&str> = super::ALL.iter().map(|(k, _)| *k).collect();
+        assert_eq!(all, super::NAMES);
+    }
 }

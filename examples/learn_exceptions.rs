@@ -2,17 +2,18 @@
 //! by hand.
 //!
 //! Turkish loanwords like *saat* 'hour' have back vowels but take front
-//! suffixes (saat-ler, not *saat-lar). The shipped Turkish spec marks them
-//! by hand (`@set:vow=fu`). Here we delete those marks, declare where
+//! suffixes (saat-ler, not *saat-lar). The small demo Turkish grammar marks
+//! them by hand (`@set:vow=fu`). Here we delete those marks, declare where
 //! exceptions may occur (`INDUCE vow IN Nouns`), and learn them back from a
 //! few sentences of ordinary text.
 //!
 //! cargo run --example learn_exceptions
 use morph_fst::{Lexer, Mode};
-use morph_fst::languages;
+
+const TURKISH: &str = include_str!("../tests/fixtures/turkish.morph");
 
 fn main() -> morph_fst::Result<()> {
-    let spec = languages::TURKISH.replace(" @set:vow=fu", "") + "\nINDUCE vow IN Nouns Adjs\n";
+    let spec = TURKISH.replace(" @set:vow=fu", "") + "\nINDUCE vow IN Nouns Adjs\n";
     let corpus = include_str!("../data/turkish_corpus.txt");
     let (lexer, learned) = Lexer::compile_with_corpus(&spec, corpus)?;
     println!("corpus: {} tokens, {} types", learned.tokens, learned.types);

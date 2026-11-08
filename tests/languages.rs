@@ -14,10 +14,11 @@ use std::collections::BTreeSet;
 type TestResult = Result<(), Box<dyn std::error::Error>>;
 
 const LANGS: &[(&str, &str)] = &[
-    ("turkish", include_str!("../data/turkish.morph")),
-    ("spanish", include_str!("../data/spanish.morph")),
-    ("french", include_str!("../data/french.morph")),
-    ("korean", include_str!("../data/korean.morph")),
+    // the small demo grammars: the oracle enumerates every surface
+    ("turkish", include_str!("fixtures/turkish.morph")),
+    ("spanish", include_str!("fixtures/spanish.morph")),
+    ("french", include_str!("fixtures/french.morph")),
+    ("korean", include_str!("fixtures/korean.morph")),
 ];
 
 fn src(lang: &str) -> Result<&'static str, String> {
@@ -339,5 +340,79 @@ fn normalization_per_language() -> TestResult {
             assert_eq!(morph_fst::output::reconstruct(&p), n.as_bytes());
         }
     }
+    Ok(())
+}
+
+/// The bundled Turkish: Zemberek's lexicon under the hand grammar.
+#[test]
+fn bundled_turkish_reads_everyday_words() -> TestResult {
+    let tr = Lexer::bundled("turkish")?;
+    for (word, lemma, parts) in [
+        ("kitaplarımızdan", "kitap", "kitap|lar|ımız|dan"),
+        ("kalbi", "kalp", "kalb|i"),
+        ("burnu", "burun", "burn|u"),
+        ("saatler", "saat", "saat|ler"),
+        ("gidiyorum", "git", "gid|iyor|um"),
+        ("yapılır", "yap", "yap|ıl|ır"),
+        ("gelmez", "gel", "gel|me|z"),
+        ("olduğunu", "ol", "ol|duğ|un|u"),
+        ("evdeydi", "ev", "ev|de|ydi"),
+        ("gelecekmiş", "gelecek", "gelecek|miş"),
+        ("benim", "ben", "ben|im"),
+        // a listed word is not re-read as stem + ending
+        ("para", "para", "para"),
+    ] {
+        let w = tr.analyze(word);
+        let got: Vec<&str> = w.parts().iter().map(|p| p.text()).collect();
+        assert_eq!((w.lemma(), got.join("|").as_str()), (lemma, parts), "{word}");
+    }
+    // circumflex vowels harmonize like their plain ones
+    assert_eq!(tr.analyze("kâğıtta").lemma(), "kâğıt");
+    Ok(())
+}
+
+/// The bundled French (Grammalecte), Spanish (RLA-ES) and Korean
+/// (mecab-ko-dic): everyday words, elision, irregular verbs.
+#[test]
+fn bundled_full_lexicons_read_everyday_words() -> TestResult {
+    let cases: &[(&str, &str, &str, &str)] = &[
+        ("french", "chevaux", "cheval", "cheva|ux"),
+        ("french", "l'homme", "homme", "l'|homme"),
+        ("french", "j'ai", "avoir", "j'|ai"),
+        ("french", "étaient", "être", "étaient"),
+        ("spanish", "canciones", "canción", "cancion|es"),
+        ("spanish", "cantábamos", "cantar", "cant|ábamos"),
+        ("spanish", "comieron", "comer", "com|ieron"),
+        ("spanish", "es", "ser", "es"),
+        ("korean", "학교에서", "학교", "학교|에서"),
+        ("korean", "먹었다", "먹", "먹|었|다"),
+        ("korean", "추워요", "춥", "추워|요"),
+        ("korean", "가까운", "가깝", "가까운"),
+    ];
+    for &lang in &["french", "spanish", "korean"] {
+        let lx = Lexer::bundled(lang)?;
+        for &(_, word, lemma, parts) in cases.iter().filter(|c| c.0 == lang) {
+            let w = lx.analyze(word);
+            let got: Vec<String> = w.parts().iter().map(|p| compose_hangul(p.text()).into_owned()).collect();
+            let stem = w.parts().iter().find(|p| p.is_known() && !p.lemma().is_empty() && p.tag().starts_with(['N', 'V', 'A'])).map(|p| compose_hangul(p.lemma()).into_owned());
+            assert_eq!(got.join("|"), parts, "{lang} {word}");
+            assert_eq!(stem.as_deref(), Some(lemma), "{lang} {word}");
+        }
+    }
+    Ok(())
+}
+
+/// `OPTION prefer_inflection false` keeps a listed word whole; the
+/// default ranks a known stem + ending above it. It survives a save.
+#[test]
+fn prefer_inflection_option_controls_listed_words() -> TestResult {
+    let base = "LEXICON Root\n  0 Nouns ;\nLEXICON Nouns @open=N\n  par N End ;\n  para N # ;\nLEXICON End\n  a DAT # ;\n  0 # ;\n";
+    let on = Lexer::compile(base)?;
+    assert_eq!(on.analyze("para").lemma(), "par");
+    let off = Lexer::compile(&format!("OPTION prefer_inflection false\n{base}"))?;
+    assert_eq!(off.analyze("para").lemma(), "para");
+    let reloaded = Lexer::from_bytes(&off.to_bytes())?;
+    assert_eq!(reloaded.analyze("para").lemma(), "para");
+    assert!(Lexer::compile("OPTION prefer_inflection maybe\nLEXICON Root\n  a N # ;\n").is_err());
     Ok(())
 }

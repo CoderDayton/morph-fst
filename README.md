@@ -80,6 +80,13 @@ morph-fst new rus -o russian.mcfu      # downloads UniMorph's Russian table and 
 
 ## License
 
-Licensed under either of [Apache License, Version 2.0](LICENSE-APACHE) or [MIT license](LICENSE-MIT) at your option.
+The code is licensed under the [Apache License, Version 2.0](LICENSE).
 
 The English lexicon in `data/english.morph` is derived from ESDB, Copyright 2000-2026 by Kevin Atkinson, under a permissive MIT-like license; the full notice is in [data/english-ESDB-COPYRIGHT.txt](data/english-ESDB-COPYRIGHT.txt) and at the top of the spec.
+
+The other bundled lexicons are derived from third-party data under their own licenses, each notice in `data/` and at the top of its spec:
+
+- Turkish (`data/turkish.morph`): Zemberek-NLP, Apache-2.0 ([notice](data/turkish-ZEMBEREK-LICENSE.txt)).
+- Spanish (`data/spanish.morph`): RLA-ES, used under MPL-1.1 ([license](data/spanish-RLA-ES-LICENSE.txt)).
+- French (`data/french.morph`): Grammalecte, MPL-2.0 ([license](data/french-GRAMMALECTE-LICENSE.txt)).
+- Korean (`data/korean.morph`): mecab-ko-dic, Apache-2.0 ([license](data/korean-MECAB-KO-DIC-LICENSE.txt)).

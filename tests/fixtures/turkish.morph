@@ -1,0 +1,304 @@
+! =====================================================================
+!  turkish.morph — Turkish demo lexicon for morph-fst
+! ---------------------------------------------------------------------
+!  Vowel harmony is long-distance: every suffix vowel agrees with the
+!  last vowel before it, however many suffixes back. The context register
+!  tracks two features of the surface text seen so far:
+!     vow  : backness/rounding of the last vowel  (bu br fu fr)
+!     coda : type of the last character            (v vl vd)
+!  Archiphonemes in suffixes read it:
+!     {A} a/e   {I} ı/i/u/ü   {Ix} {I} or nothing after a vowel
+!     {D} d/t   {C} c/ç   {Y} {S} {N} buffer consonants after vowels
+! =====================================================================
+
+OPTION max_morph_chars 48
+OPTION case turkish
+
+CLASS V        = a e ı i o ö u ü
+CLASS C        = b c ç d f g ğ h j k l m n p r s ş t v y z
+CLASS AE       = a e
+CLASS HV       = ı i u ü
+CLASS VOWELISH = a e ı i o ö u ü {A} {I} {Ix} {Y} {S} {N}
+
+FEATURE vow
+  a ı -> bu
+  o u -> br
+  e i -> fu
+  ö ü -> fr
+
+FEATURE coda
+  [V] -> v
+  ç f h k p s ş t -> vl
+  [*] -> vd
+
+ARCHI A
+  vow=bu|br -> a
+  * -> e
+
+ARCHI I
+  vow=bu -> ı
+  vow=br -> u
+  vow=fr -> ü
+  * -> i
+
+ARCHI Ix
+  coda=v -> 0
+  vow=bu -> ı
+  vow=br -> u
+  vow=fr -> ü
+  * -> i
+
+ARCHI D
+  coda=vl -> t
+  * -> d
+
+ARCHI C
+  coda=vl -> ç
+  * -> c
+
+ARCHI Y
+  coda=v -> y
+  * -> 0
+
+ARCHI S
+  coda=v -> s
+  * -> 0
+
+ARCHI N
+  coda=v -> n
+  * -> 0
+
+LEXICON Root
+  0 Nouns ;
+  0 Adjs ;
+  0 Verbs ;
+  0 Closed ;
+
+LEXICON Closed
+  ve      CONJ  # ;
+  ama     CONJ  # ;
+  bir     DET   # ;
+  bu      DEM   # ;
+  şu      DEM   # ;
+  ben     PRON  # ;
+  sen     PRON  # ;
+  biz     PRON  # ;
+  siz     PRON  # ;
+  çok     ADV   # ;
+  değil   NEG   # ;
+
+! ---------------------------------------------------------------------
+!  Nouns   (@soft: final p ç t k voice before a vowel; @drop: high vowel
+!  drops before a vowel; @dbl: final consonant doubles; @set: exceptional
+!  harmony)
+! ---------------------------------------------------------------------
+LEXICON Nouns @open=N
+  ev         N  NounCont ;
+  okul       N  NounCont ;
+  araba      N  NounCont ;
+  kedi       N  NounCont ;
+  masa       N  NounCont ;
+  el         N  NounCont ;
+  gün        N  NounCont ;
+  yol        N  NounCont ;
+  köy        N  NounCont ;
+  göz        N  NounCont ;
+  göl        N  NounCont ;
+  kız        N  NounCont ;
+  adam       N  NounCont ;
+  kadın      N  NounCont ;
+  insan      N  NounCont ;
+  dünya      N  NounCont ;
+  ülke       N  NounCont ;
+  deniz      N  NounCont ;
+  kalem      N  NounCont ;
+  defter     N  NounCont ;
+  telefon    N  NounCont ;
+  öğretmen   N  NounCont ;
+  öğrenci    N  NounCont ;
+  doktor     N  NounCont ;
+  arkadaş    N  NounCont ;
+  süt        N  NounCont ;
+  söz        N  NounCont ;
+  yüz        N  NounCont ;
+  iş         N  NounCont ;
+  gece       N  NounCont ;
+  hafta      N  NounCont ;
+  yıl        N  NounCont ;
+  para       N  NounCont ;
+  kapı       N  NounCont ;
+  oda        N  NounCont ;
+  ders       N  NounCont ;
+  sabah      N  NounCont ;
+  okyanus    N  NounCont ;
+  kitap      N  NounCont @soft ;
+  ağaç       N  NounCont @soft ;
+  köpek      N  NounCont @soft ;
+  sokak      N  NounCont @soft ;
+  çocuk      N  NounCont @soft ;
+  çiçek      N  NounCont @soft ;
+  ekmek      N  NounCont @soft ;
+  balık      N  NounCont @soft ;
+  kalp       N  NounCont @soft @set:vow=fu ;
+  renk       N  NounCont @soft ;
+  burun      N  NounCont @drop ;
+  ağız       N  NounCont @drop ;
+  oğul       N  NounCont @drop ;
+  şehir      N  NounCont @drop ;
+  akıl       N  NounCont @drop ;
+  hak        N  NounCont @dbl ;
+  his        N  NounCont @dbl ;
+  saat       N  NounCont @set:vow=fu ;
+  harf       N  NounCont @set:vow=fu ;
+  hayal      N  NounCont @set:vow=fu ;
+
+LEXICON Adjs @open=ADJ
+  güzel      ADJ  NounCont ;
+  yeni       ADJ  NounCont ;
+  eski       ADJ  NounCont ;
+  iyi        ADJ  NounCont ;
+  kötü       ADJ  NounCont ;
+  uzun       ADJ  NounCont ;
+  kısa       ADJ  NounCont ;
+  büyük      ADJ  NounCont @soft ;
+  küçük      ADJ  NounCont @soft ;
+  sıcak      ADJ  NounCont @soft ;
+  soğuk      ADJ  NounCont @soft ;
+
+LEXICON NounCont
+  0 Plural ;
+  0 NounDeriv ;
+
+LEXICON NounDeriv
+  {C}{I}     AGT       Plural ;
+  l{I}k      ABST      Plural @soft ;
+  s{I}z      PRIV      AdjEnd ;
+  l{I}       WITH      AdjEnd ;
+
+LEXICON AdjEnd
+  0 # ;
+  l{I}k      ABST      Plural @soft ;
+
+LEXICON Plural
+  l{A}r      PL        PossPl ;
+  0 Poss ;
+
+LEXICON Poss
+  0 PossCommon ;
+  l{A}r{I}   P3PL      Case3 ;
+
+LEXICON PossPl
+  0 PossCommon ;
+
+LEXICON PossCommon
+  {Ix}m      P1SG      Case ;
+  {Ix}n      P2SG      Case ;
+  {S}{I}     P3SG      Case3 ;
+  {Ix}m{I}z  P1PL      Case ;
+  {Ix}n{I}z  P2PL      Case ;
+  0 Case ;
+
+LEXICON Case
+  {Y}{I}     ACC       # ;
+  {Y}{A}     DAT       # ;
+  {D}{A}     LOC       # ;
+  {D}{A}n    ABL       # ;
+  {N}{I}n    GEN       # ;
+  {Y}l{A}    INS       # ;
+  0 # ;
+
+! after a 3rd-person possessive: pronominal n
+LEXICON Case3
+  n{I}       ACC       # ;
+  n{A}       DAT       # ;
+  n{D}{A}    LOC       # ;
+  n{D}{A}n   ABL       # ;
+  n{I}n      GEN       # ;
+  {Y}l{A}    INS       # ;
+  0 # ;
+
+! ---------------------------------------------------------------------
+!  Verbs
+! ---------------------------------------------------------------------
+LEXICON Verbs @open=V
+  gel        V  VerbCont ;
+  yap        V  VerbCont ;
+  oku        V  VerbCont ;
+  ara        V  VerbCont ;
+  bekle      V  VerbCont ;
+  de         V  VerbCont ;
+  ye         V  VerbCont ;
+  anla       V  VerbCont ;
+  başla      V  VerbCont ;
+  oyna       V  VerbCont ;
+  söyle      V  VerbCont ;
+  iste       V  VerbCont ;
+  dinle      V  VerbCont ;
+  izle       V  VerbCont ;
+  bil        V  VerbCont ;
+  gör        V  VerbCont ;
+  otur       V  VerbCont ;
+  konuş      V  VerbCont ;
+  al         V  VerbCont ;
+  ver        V  VerbCont ;
+  sev        V  VerbCont ;
+  çalış      V  VerbCont ;
+  yaz        V  VerbCont ;
+  iç         V  VerbCont ;
+  aç         V  VerbCont ;
+  koş        V  VerbCont ;
+  öğren      V  VerbCont ;
+  düşün      V  VerbCont ;
+  sat        V  VerbCont ;
+  kal        V  VerbCont ;
+  bul        V  VerbCont ;
+  sor        V  VerbCont ;
+  gül        V  VerbCont ;
+  bak        V  VerbCont ;
+  yürü       V  VerbCont ;
+  uyu        V  VerbCont ;
+  git        V  VerbCont @soft ;
+
+LEXICON VerbCont
+  m{A}       NEG       Tense ;
+  0 Tense ;
+
+LEXICON Tense
+  {Ix}yor      PROG    PersZ ;
+  {D}{I}       PST     PersK ;
+  m{I}ş        EVID    PersZ ;
+  {Y}{A}c{A}k  FUT     PersZ @soft ;
+  m{A}k        INF     # ;
+
+! z-paradigm person endings
+LEXICON PersZ
+  {Y}{I}m      1SG     # ;
+  s{I}n        2SG     # ;
+  {Y}{I}z      1PL     # ;
+  s{I}n{I}z    2PL     # ;
+  l{A}r        3PL     # ;
+  0 # ;
+
+! k-paradigm person endings (after the past tense)
+LEXICON PersK
+  m            1SG     # ;
+  n            2SG     # ;
+  k            1PL     # ;
+  n{I}z        2PL     # ;
+  l{A}r        3PL     # ;
+  0 # ;
+
+! ---------------------------------------------------------------------
+RULES
+  prog_del:  [AE] -> 0  / _ +{{Ix}yor} ;
+  nk:        k -> g     / n _ +[VOWELISH] @soft ;
+  soft_k:    k -> ğ     / _ +[VOWELISH] @soft ;
+  soft_p:    p -> b     / _ +[VOWELISH] @soft ;
+  soft_t:    t -> d     / _ +[VOWELISH] @soft ;
+  soft_c:    ç -> c     / _ +[VOWELISH] @soft ;
+  vdrop:     [HV] -> 0  / _ [C] +[VOWELISH] @drop ;
+  dbl:       . -> $$    / _ +[VOWELISH] @dbl ;
+
+PIECES
+  . , : ? ' " ( ) - /
+  0 1 2 3 4 5 6 7 8 9 ##0 ##1 ##2 ##3 ##4 ##5 ##6 ##7 ##8 ##9

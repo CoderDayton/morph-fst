@@ -169,7 +169,7 @@ l'homme          FST  le<DET>+homme<N>                         [l'|homme]
 | `korean` | Hangul→jamo; 이/가, 을/를, 은/는, (으)로; 아/어 harmony and contraction; ㅡ ㅂ ㄷ 르 하 irregulars | 학생이, 서울로, 먹어요, 갔어요, 해요, 추워요, 몰라요, 들으면 |
 | `igbo` (simplified, tones stripped) | ATR harmony in **both** directions | iri / ịga, inye / ịṅụ, eri / aga, riri / gara / hụrụ, erighị / agaghị |
 
-Apart from English, these are compact demo lexicons (a few hundred morphemes each) that show the spec language. Extend them, or write your own. How the English one is built is in [How it works](how-it-works.md#the-bundled-english).
+English, Turkish, Spanish, French and Korean carry full lexicons, generated from a hand-written grammar plus third-party data (`examples/build_<language>.rs`; sources and licenses in the README). Igbo is a compact demo lexicon. Small demo grammars for the other four, in `tests/fixtures/`, are what the tests enumerate exhaustively. How the English one is built is in [How it works](how-it-works.md#the-bundled-english).
 
 **Normalization** is per language and applied by `analyze` and `analyze_text`:
 - Latin combining marks are composed.
