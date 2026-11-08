@@ -20,8 +20,10 @@ NEW LANGUAGE (the easy way)
   new <code> -o <lexer.mcfu> [--wordlist <words.txt>] [--corpus <text.txt>]
          downloads the language's UniMorph table (<code> is its three-letter
          code: rus, spa, tur, ...) and builds a lexer. --unimorph <file> or
-         --spec <file> replace the download; --wordlist covers words the
-         table misses (and alone, builds from the list only).
+         --spec <file> replace the download; --hunspell <dict.aff> adds a
+         spell-checking dictionary's stems and affixes (or alone, builds from
+         it); --wordlist covers words the table misses (and alone, builds
+         from the list only).
 
 BUILD (one source, one compile loop, one artifact)
   build  <spec.morph> -o <lexer.mcfu> [--corpus <text.txt>]
@@ -39,8 +41,9 @@ USE
   bench <spec.morph> [--words N] [--reps R]
 
 SOURCE is one of:  --spec <spec.morph>  |  --fused <lexer.mcfu>  |  --unimorph <unimorph.tsv>
-                   |  --wordlist <words.txt>
-(--unimorph drafts a spec from tables, --wordlist from a bare word list: no spec to write.)
+                   |  --wordlist <words.txt>  |  --hunspell <dict.aff> (with dict.dic beside it)
+(--unimorph and --hunspell draft a spec from tables or a dictionary, --wordlist from a bare
+word list: no spec to write.)
 A <spec.morph> argument may also name a bundled language:
   english, turkish, spanish, french, korean, igbo
 ";
@@ -62,6 +65,14 @@ fn read(path: &str) -> Result<Vec<u8>> {
 
 fn read_text(path: &str) -> Result<String> {
     String::from_utf8(read(path)?).map_err(|_| Error::Io(format!("{path}: not UTF-8")))
+}
+
+/// A Hunspell `.aff` and the `.dic` beside it, decoded as the `.aff` says.
+fn read_hunspell(aff_path: &str) -> Result<(String, String)> {
+    let dic_path = std::path::Path::new(aff_path).with_extension("dic");
+    let aff = read(aff_path)?;
+    let dic = read(&dic_path.to_string_lossy())?;
+    Ok((morph_fst::hunspell::decode(&aff, &aff)?, morph_fst::hunspell::decode(&dic, &aff)?))
 }
 
 /// A spec file, or the name of a bundled language.
@@ -87,7 +98,7 @@ struct Args {
 
 impl Args {
     fn parse(a: &[String]) -> Result<Args> {
-        const WITH_VALUE: &[&str] = &["-o", "--spec", "--fused", "--mode", "--words", "--reps", "--corpus", "--unimorph", "--wordlist"];
+        const WITH_VALUE: &[&str] = &["-o", "--spec", "--fused", "--mode", "--words", "--reps", "--corpus", "--unimorph", "--wordlist", "--hunspell"];
         let mut out = Args { pos: vec![], kv: vec![], sw: vec![] };
         let mut i = 0;
         while i < a.len() {
@@ -133,7 +144,11 @@ fn load_source(a: &Args) -> Result<Lexer> {
     if let Some(p) = a.get("--wordlist") {
         return Lexer::from_wordlist(&read_text(p)?);
     }
-    Err(Error::Io("need --spec, --fused, --unimorph or --wordlist".into()))
+    if let Some(p) = a.get("--hunspell") {
+        let (aff, dic) = read_hunspell(p)?;
+        return Lexer::builder().hunspell(&aff, &dic).build();
+    }
+    Err(Error::Io("need --spec, --fused, --unimorph, --wordlist or --hunspell".into()))
 }
 
 /// The UniMorph table for a three-letter language code, downloaded with `curl`.
@@ -161,6 +176,10 @@ fn new_language(a: &Args) -> Result<()> {
         b = b.unimorph(&read_text(p)?);
     } else if let Some(code) = a.pos.first() {
         b = b.unimorph(&fetch_unimorph(code)?);
+    }
+    if let Some(p) = a.get("--hunspell") {
+        let (aff, dic) = read_hunspell(p)?;
+        b = b.hunspell(&aff, &dic);
     }
     if let Some(p) = a.get("--wordlist") {
         b = b.words(&read_text(p)?);

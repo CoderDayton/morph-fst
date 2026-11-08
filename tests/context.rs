@@ -43,6 +43,29 @@ fn neighbours_pick_the_reading() -> TestResult {
     Ok(())
 }
 
+/// `'form'` matches the word as written, where a lemma would merge forms.
+#[test]
+fn forms_tell_apart_what_lemmas_merge() -> TestResult {
+    let lx = Lexer::compile(
+        "PREFER CONJ OVER PREP BEFORE 'he'\nLEXICON Root\n  he PRON # ;\n  him:he PRON # ;\n  since PREP # ;\n  since CONJ # ;\n",
+    )?;
+    assert_eq!(tags(&lx, "since he"), ["CONJ", "PRON"]);
+    assert_eq!(tags(&lx, "since him"), ["PREP", "PRON"]);
+    let lx = Lexer::from_bytes(&lx.to_bytes())?;
+    assert_eq!(tags(&lx, "since he"), ["CONJ", "PRON"]);
+    // The form is normalized like the text it meets.
+    let lx = Lexer::compile("PREFER CONJ OVER PREP BEFORE 'He'\nLEXICON Root\n  he PRON # ;\n  since PREP # ;\n  since CONJ # ;\n")?;
+    assert_eq!(tags(&lx, "since he"), ["CONJ", "PRON"]);
+    Ok(())
+}
+
+/// A lemma in quotes may hold an apostrophe.
+#[test]
+fn lemmas_may_hold_apostrophes() -> TestResult {
+    Lexer::compile("PREFER V AFTER \"'s\"\nLEXICON Root\n  a N # ;\n")?;
+    Ok(())
+}
+
 /// `tokens()` and `Display` show the reading the context chose.
 #[test]
 fn detail_follows_the_chosen_reading() -> TestResult {
@@ -63,7 +86,7 @@ fn prefer_is_spellable() -> TestResult {
 
 #[test]
 fn bad_prefer_lines_are_errors() {
-    for line in ["PREFER V", "PREFER V NEAR N", "PREFER V OVER AFTER N", "PREFER \"\" AFTER N", "PREFER V AFTER ,"] {
+    for line in ["PREFER V", "PREFER V NEAR N", "PREFER V OVER AFTER N", "PREFER \"\" AFTER N", "PREFER V AFTER ,", "PREFER V AFTER ''", "PREFER V AFTER 'a\"'", "PREFER V AFTER 'a"] {
         let spec = format!("{line}\nLEXICON Root\n  a N # ;\n");
         assert!(Lexer::compile(&spec).is_err(), "{line} should be an error");
     }

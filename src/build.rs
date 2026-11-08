@@ -9,6 +9,9 @@ use crate::output::WordOutput;
 ///
 /// * [`unimorph`](Self::unimorph): inflection tables with features and
 ///   lemmas (the richest source);
+/// * [`hunspell`](Self::hunspell): a spell-checking dictionary, stems and
+///   affix rules (about a hundred languages; affix classes stand in for
+///   features). Next to tables, its rows are added to theirs;
 /// * [`spec`](Self::spec): a hand-written `.morph` grammar, instead of tables;
 /// * [`words`](Self::words): a plain word list. On its own it yields stems and
 ///   endings with no features; next to tables or a spec it covers the words
@@ -28,6 +31,7 @@ use crate::output::WordOutput;
 pub struct LexerBuilder {
     spec: Option<String>,
     unimorph: Option<String>,
+    hunspell: Option<(String, String)>,
     words: Option<String>,
     corpus: Option<String>,
 }
@@ -45,6 +49,13 @@ impl LexerBuilder {
         self
     }
 
+    /// A Hunspell dictionary: the `.aff` and `.dic` file contents, already
+    /// decoded (see [`hunspell::decode`](crate::hunspell::decode)).
+    pub fn hunspell(mut self, aff: &str, dic: &str) -> Self {
+        self.hunspell = Some((aff.to_string(), dic.to_string()));
+        self
+    }
+
     /// Words separated by whitespace.
     pub fn words(mut self, words: &str) -> Self {
         self.words = Some(words.to_string());
@@ -58,10 +69,22 @@ impl LexerBuilder {
     }
 
     /// Generate the lexer. It is an error to give nothing to build from, or
-    /// both a spec and tables.
+    /// both a spec and tables (or a dictionary).
     pub fn build(self) -> Result<Lexer> {
-        let base = match (self.spec, self.unimorph) {
-            (Some(_), Some(_)) => return spec_error("give a spec or UniMorph tables, not both"),
+        let tables = match (self.unimorph, &self.hunspell) {
+            (t, None) => t,
+            (_, Some(_)) if self.spec.is_some() => return spec_error("give a spec or tables (UniMorph, Hunspell), not both"),
+            (t, Some((aff, dic))) => {
+                let mut t = t.unwrap_or_default();
+                if !t.is_empty() && !t.ends_with('\n') {
+                    t.push('\n');
+                }
+                t.push_str(&crate::hunspell::to_unimorph(aff, dic)?);
+                Some(t)
+            }
+        };
+        let base = match (self.spec, tables) {
+            (Some(_), Some(_)) => return spec_error("give a spec or tables (UniMorph, Hunspell), not both"),
             (Some(spec), None) => Some(spec),
             (None, Some(tsv)) => Some(crate::generate::from_unimorph(&tsv)?.spec),
             (None, None) => None,
@@ -70,7 +93,7 @@ impl LexerBuilder {
             (Some(spec), Some(words)) => extend(spec, words)?,
             (Some(spec), None) => spec,
             (None, Some(words)) => crate::discover::from_wordlist(words)?.spec,
-            (None, None) => return spec_error("nothing to build from: give unimorph tables, a spec or words"),
+            (None, None) => return spec_error("nothing to build from: give unimorph tables, a hunspell dictionary, a spec or words"),
         };
         match &self.corpus {
             Some(text) => Ok(Lexer::compile_with_corpus(&spec, text)?.0),

@@ -127,13 +127,21 @@ pub fn parse_spec(text: &str) -> Result<Spec> {
 
 /// `PREFER N,ADJ [OVER ADV] AFTER|BEFORE DET,"to"`.
 fn parse_prefer(toks: &[&str], line: usize) -> Result<ContextRule> {
-    let usage = "expected `PREFER tags [OVER tags] AFTER|BEFORE tags`, tags comma-separated, a lemma in quotes";
+    let usage = "expected `PREFER tags [OVER tags] AFTER|BEFORE tags`, comma-separated: a tag, a \"lemma\" or a 'form'";
+    // A lemma may hold an apostrophe (`"'s"`); a form may hold neither quote.
+    let quoted = |s: &str, q: char, bad: &[char]| s.strip_prefix(q).and_then(|s| s.strip_suffix(q)).filter(|x| !x.is_empty() && !x.contains(bad)).map(str::to_string);
     let sels = |t: &str| -> Result<Vec<Sel>> {
         t.split(',')
-            .map(|s| match s.strip_prefix('"').and_then(|s| s.strip_suffix('"')) {
-                Some(l) if !l.is_empty() => Ok(Sel::Lemma(l.to_string())),
-                None if !s.is_empty() && !s.contains('"') => Ok(Sel::Tag(s.to_string())),
-                _ => spec_err(line, usage),
+            .map(|s| {
+                if let Some(l) = quoted(s, '"', &['"']) {
+                    Ok(Sel::Lemma(l))
+                } else if let Some(f) = quoted(s, '\'', &['"', '\'']) {
+                    Ok(Sel::Form(f))
+                } else if !s.is_empty() && !s.contains(['"', '\'']) {
+                    Ok(Sel::Tag(s.to_string()))
+                } else {
+                    spec_err(line, usage)
+                }
             })
             .collect()
     };

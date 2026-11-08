@@ -494,6 +494,14 @@ impl Morphotactics {
             lex_sorted: false,
             lex_of: Vec::new(),
         };
+        // `'form'` selectors meet the normalized word text.
+        for rule in &mut mt.context {
+            for s in rule.prefer.iter_mut().chain(&mut rule.over).chain(&mut rule.near) {
+                if let crate::spec::Sel::Form(f) = s {
+                    *f = crate::normalize::normalize(f, &mt.norm);
+                }
+            }
+        }
         mt.derive();
         mt.start = mt.closure(mt.state(g.root, 0, 0)).collect();
         for c in 0..nc {
@@ -1262,6 +1270,7 @@ fn write_sels(sels: &[crate::spec::Sel], w: &mut Writer) {
         let (kind, text) = match s {
             crate::spec::Sel::Tag(t) => (0, t),
             crate::spec::Sel::Lemma(l) => (1, l),
+            crate::spec::Sel::Form(f) => (2, f),
         };
         w.u8(kind);
         w.str(text);
@@ -1277,6 +1286,7 @@ fn read_sels(r: &mut Reader) -> Result<Vec<crate::spec::Sel>> {
         out.push(match kind {
             0 => crate::spec::Sel::Tag(text),
             1 => crate::spec::Sel::Lemma(text),
+            2 => crate::spec::Sel::Form(text),
             _ => return art_err("bad context selector"),
         });
     }

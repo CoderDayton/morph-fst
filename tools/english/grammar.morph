@@ -35,6 +35,40 @@ PREFER ADJ OVER ADV BEFORE N
 PREFER ADJ OVER ADV AFTER "be","very","too","so","more","most"
 ! that, which, what, this stand alone before a verb or punctuation
 PREFER PRON OVER DET BEFORE V,MOD,ADV,PREP,CONJ,PUNCT
+! learned by `cargo run --release --example treebank -- learn` on UD
+! English EWT train, stopped on dev, appended after the rules above
+PREFER CONJ BEFORE PRON
+PREFER V OVER N BEFORE DET
+PREFER N BEFORE "of"
+PREFER CONJ OVER DET BEFORE DET
+PREFER N OVER ADJ BEFORE PUNCT
+PREFER V OVER N AFTER ADV
+PREFER N OVER V AFTER ADJ
+PREFER CONJ BEFORE V
+PREFER ADV BEFORE PUNCT
+PREFER V OVER N AFTER CLITIC
+PREFER ADJZ OVER DET BEFORE N
+PREFER CONJ OVER DET BEFORE NAME
+PREFER ADJ OVER ADV BEFORE NAME
+PREFER ADV BEFORE ADV
+PREFER ADV OVER CONJ BEFORE ADJ
+PREFER PRON BEFORE CLITIC
+PREFER N OVER ADJ AFTER ADJ
+PREFER N OVER ADJ AFTER N
+PREFER N OVER MOD BEFORE NUM
+PREFER V OVER ADJ BEFORE DET
+PREFER V OVER ADJ BEFORE PREP
+PREFER ADJZ OVER DET BEFORE ADJ
+PREFER ADV OVER CONJ BEFORE N
+PREFER ADJ OVER ADV AFTER "make"
+PREFER ADV BEFORE PREP
+PREFER N OVER V BEFORE CONJ
+PREFER ADJ OVER ADV BEFORE NMLZ
+PREFER ADJZ:AL BEFORE N
+PREFER CONJ BEFORE CONJ
+PREFER N OVER ADJZ BEFORE NAME
+PREFER CONJ BEFORE "possible"
+PREFER N OVER ADJ BEFORE MOD
 
 LEXICON Root
   0 Prefixes ;
@@ -225,6 +259,19 @@ LEXICON Closed
   whether      CONJ   # ;
   while        CONJ   # ;
   if           CONJ   # ;
+  ! second readings, for context rules to choose: conjunctions that
+  ! are also prepositions or pronouns, adverbs that are also conjunctions
+  that         CONJ   # ;
+  as           CONJ   # ;
+  since        CONJ   # ;
+  before       CONJ   # ;
+  after        CONJ   # ;
+  until        CONJ   # ;
+  once         CONJ   # ;
+  so           ADV    # ;
+  yet          ADV    # ;
+  though       ADV    # ;
+  there        PRON   # ;
   not          ADV    # ;
   never        ADV    # ;
   always       ADV    # ;

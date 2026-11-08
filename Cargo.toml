@@ -44,6 +44,10 @@ name = "learn_exceptions"
 [[example]]
 name = "heldout"
 
+# Part of speech and lemma on a UD treebank; learns PREFER rules.
+[[example]]
+name = "treebank"
+
 # English no-regression and throughput harness; not published.
 [[example]]
 name = "regress"

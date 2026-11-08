@@ -257,6 +257,8 @@ pub enum Sel {
     Tag(String),
     /// The word's lemma (`"to"`, `"be"`).
     Lemma(String),
+    /// The word as written, normalized (`'him'`, which `"he"` also matches).
+    Form(String),
 }
 
 /// `PREFER prefer [OVER over] AFTER|BEFORE near`: when the word before (or

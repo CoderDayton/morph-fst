@@ -34,9 +34,11 @@ use std::fmt::Write;
 
 /// UniMorph part-of-speech features; the first one in a row is its POS.
 const POS: &[&str] =
-    &["N", "PROPN", "ADJ", "PRO", "CLF", "ART", "DET", "V", "V.PTCP", "V.MSDR", "V.CVB", "ADV", "AUX", "ADP", "COMP", "CONJ", "NUM", "PART", "INTJ"];
-/// Open classes: hybrid mode may posit unknown stems of these.
-const OPEN: &[&str] = &["N", "PROPN", "ADJ", "V", "ADV"];
+    &["N", "PROPN", "ADJ", "PRO", "CLF", "ART", "DET", "V", "V.PTCP", "V.MSDR", "V.CVB", "ADV", "AUX", "ADP", "COMP", "CONJ", "NUM", "PART", "INTJ", "STEM"];
+/// Open classes: hybrid mode may posit unknown stems of these. `STEM` is a
+/// dictionary stem with no part of speech (Hunspell without `po:`), which
+/// still inflects.
+const OPEN: &[&str] = &["N", "PROPN", "ADJ", "V", "ADV", "STEM"];
 /// Characters with meaning in `.morph` entry surfaces.
 const RESERVED: &[char] = &['!', '#', ':', '{', '}', ';'];
 

@@ -69,6 +69,22 @@ First release.
   78.5% → 80.3%, English 78.0% → 78.3%; Hungarian unchanged. English
   treebank lemma accuracy 96.7% → 96.6% (a few short unknown words now read
   as stem + `s`). English `as` joined the closed class.
+- Hunspell dictionaries: `LexerBuilder::hunspell(aff, dic)`, CLI
+  `--hunspell dict.aff` and `hunspell::to_unimorph` expand the affix rules
+  into rows for the generator (`STEM` is the open class of a stem with no
+  `po:`). Spanish `es_ES` alone gives 69.7% right lemmas on UniMorph forms.
+- `examples/treebank.rs`: part of speech and lemma on a UD treebank, and
+  `learn`, which writes `PREFER` rules found on a training set and stopped
+  on dev. `--closed` adds a treebank's function words to a UniMorph grammar
+  (German GSD part of speech 45.4% → 87.3%). English gained 32 learned rules
+  and second readings for `that`/`as`/`since`/`before`/`after`/`until`/
+  `once` (conjunction), `so`/`yet`/`though` (adverb) and `there` (pronoun):
+  UD EWT test part of speech 86.0% → 87.7%. `'x'` in a rule matches the
+  word as written.
+- `examples/heldout.rs` takes many tables and checks them against
+  `examples/heldout.baseline` (18 languages). Measured and not kept, since
+  they lost accuracy: Arabic alef/hamza folding, nouns before adjectives in
+  English, ranking ties by class size, and any one-letter stem change.
 - Context rules: `PREFER tags [OVER tags] AFTER|BEFORE tags` (`"x"` for a
   lemma). In `analyze_text`, a word takes its first reading that fits its
   neighbour; rules are ordered, never weighted. English declares six

@@ -1,8 +1,8 @@
 # morph-fst
 
-A rule-based **morphological analyzer** fused with a **deterministic subword fallback**, in Rust.
+A **finite-state morphological lexer** for Rust: it analyzes the words a grammar knows, guesses the ones it doesn't, and falls back to subwords for the rest.
 
-You write a language's morphology once, as a plain-text `.morph` spec. The crate compiles it into one artifact that, for every word:
+You write a language's morphology once, as a plain-text `.morph` spec. The crate compiles it into one automaton (a char trie with morpheme payloads, finite-state morphotactics and harmony registers) that reads each word in one left-to-right scan. For every word it:
 
 1. **parses it** into known roots and affixes if the grammar accepts it:
    - `unhappiness → un<PFX:NEG>+happy<ADJ>+ness<NMLZ>`
@@ -12,8 +12,11 @@ You write a language's morphology once, as a plain-text `.morph` spec. The crate
 3. **for a word it has never seen (hybrid mode)** reads the unknown stem against the stems it knows and returns every reading the grammar supports, best first:
    - `blorties → ⟨blortie→blorty⟩<?N> + s<PL>` (the stem takes `y→ie` from *city*, *party*)
    - `bloglarımda → ⟨blog⟩<?N> + lAr<PL> + Ixm<P1SG> + DA<LOC>`
+   - `gekauft → ⟨gekauft→kaufen⟩<?V;V.PTCP;PST>` (German, from tables with only *gemacht*, *gesagt*, *gelegt*: the `ge-` and `-en` come from those stems)
 
-It ships with a **full English grammar** (38k stems, generated from the permissively licensed [ESDB](https://github.com/en-wl/wordlist) word database), demo grammars for **Turkish, Spanish, French, Korean and Igbo**, and drafts grammars for other languages from [UniMorph](https://unimorph.github.io) tables.
+Strict mode is the automaton alone. Hybrid mode is a ranked best-first search over the same automaton. Two layers sit on top: in running text, the grammar's `PREFER` rules pick each word's reading from its neighbours, and a tokenizer handles numbers, URLs and punctuation. The search is ranked lexicographically, never by weights. The lexer learns nothing at run time: data may draft a grammar (tables, dictionaries, treebanks), but what it runs is plain spec text, so the grammar is the model.
+
+It ships with a **full English grammar** (38k stems, generated from the permissively licensed [ESDB](https://github.com/en-wl/wordlist) word database), demo grammars for **Turkish, Spanish, French, Korean and Igbo**, and drafts grammars for other languages from [UniMorph](https://unimorph.github.io) tables (18 measured, below) or [Hunspell](https://hunspell.github.io) dictionaries.
 
 ## What it does, and the two modes
 
@@ -95,9 +98,9 @@ Scored on the 25k tokens of the [UD English EWT](https://github.com/UniversalDep
 |---|---|
 | Token boundaries (exact span, F1) | 97.1% |
 | Lemma of the best reading (20.1k alphabetic words) | 96.7% |
-| Part of speech of the best reading in `analyze_text` (N/V/ADJ/ADV/DET and closed classes, 20.1k words) | 86.0% |
+| Part of speech of the best reading in `analyze_text` (N/V/ADJ/ADV/DET and closed classes, 20.1k words) | 87.7% |
 
-Part of speech is still the weakest check. Spelling alone gets 81.2%. The grammar's `PREFER` rules then pick a reading from the neighbouring words (a verb after `to` or a pronoun, a noun after a determiner; see [Context](#context-prefer)), which brings it to 86.0%. The rules were written against the EWT dev set and scored on test. 94.3% of words carry the right part of speech in some reading. `analyze` sees one word, so it keeps the context-free order.
+Part of speech is still the weakest check. Spelling alone gets 81.2%. The grammar's `PREFER` rules then pick a reading from the neighbouring words (see [Context](#context-prefer)), which brings it to 87.7%. Six rules are hand-written (a verb after `to` or a pronoun, a noun after a determiner). 32 more were learned from the EWT training set and stopped on dev, and the score is on test. `analyze` sees one word, so it keeps the context-free order. Reproduce with `cargo run --release --example treebank -- score en_ewt-ud-test.conllu`.
 
 ### Tokenizer
 
@@ -131,6 +134,7 @@ let lx = Lexer::builder()
 | You have | You get |
 |---|---|
 | UniMorph tables | stems, endings with features, lemmas, spelling-change variants |
+| A Hunspell dictionary (`.hunspell(&aff, &dic)`) | stems and endings from its affix rules; the affix classes stand in for features |
 | A word list only | stems and endings (no features), found by [paradigm discovery](#discovering-a-grammar-from-a-word-list) |
 | Tables and a word list | the tables' grammar, plus paradigms discovered from the words the tables reject |
 | A spec | exactly your grammar; a word list or corpus adds to it |
@@ -140,6 +144,7 @@ From the command line one command does it, including the download:
 ```sh
 morph-fst new rus -o russian.mcfu                          # fetches UniMorph's Russian table
 morph-fst new rus -o russian.mcfu --wordlist words.txt     # plus your words
+morph-fst new -o spanish.mcfu --hunspell es_ES.aff         # from a spell-checker (es_ES.dic beside it)
 morph-fst tokenize --fused russian.mcfu "я люблю читать книги"
 ```
 
@@ -314,7 +319,11 @@ PREFER N,ADJ AFTER DET,"my"           ! after a determiner or `my`, take a noun 
 PREFER ADJ OVER ADV BEFORE N          ! only an ADV best reading gives way, and only before a noun
 ```
 
-In `analyze_text`, a word whose best reading does not match the preferred tags takes its first alternative that does. This happens only when the word before (`AFTER`) or after (`BEFORE`) matches. A reading's tag is its last derivation or its stem (`V` for `make+ing`), and a tag also matches its `TAG:sub` forms. `"x"` matches a lemma. The word before is read as already chosen, the word after by its best reading. The first rule that applies decides (its neighbour matches, and so do its `OVER` tags if it has any), so rules are ordered, never weighted. The displaced reading stays first among the alternatives.
+In `analyze_text`, a word whose best reading does not match the preferred tags takes its first alternative that does. This happens only when the word before (`AFTER`) or after (`BEFORE`) matches. A reading's tag is its last derivation or its stem (`V` for `make+ing`), and a tag also matches its `TAG:sub` forms. `"x"` matches a lemma and `'x'` the word as written, so `'him'` can stand apart from `'he'` where the lemma `"he"` covers both. The word before is read as already chosen, the word after by its best reading. The first rule that applies decides (its neighbour matches, and so do its `OVER` tags if it has any), so rules are ordered, never weighted. The displaced reading stays first among the alternatives.
+
+Rules can be learned from a [UD treebank](https://universaldependencies.org) (CC BY-SA; fetched, never bundled). Each round of `cargo run --release --example treebank -- learn train.conllu dev.conllu [--spec F | --unimorph T]` adds the rule that fixes the most training words net of those it breaks, and learning stops at the first rule that does not help dev. The output is `PREFER` lines to paste into the grammar.
+
+A UniMorph grammar has no function words, because the tables list only words that inflect. `--closed train.conllu` adds the determiners, pronouns, adpositions, conjunctions and adverbs the treebank shows at least twice. On German (UniMorph `deu`, UD German-GSD test), part of speech goes 45.4% → 83.0% with the function words, and → 87.3% with 14 learned rules. Lemma goes 23.6% → 65.9%.
 
 ### Opaque harmony: `OPTION harmony underlying`
 
@@ -392,20 +401,30 @@ The right features appear among the readings for 98.9% (Turkish), 97.7% (Spanish
 
 #### Across languages
 
-Same protocol for every language (`cargo run --release --example heldout -- <tsv>`: 4,000 evenly spaced lemmas, every tenth held out, a grammar built from the rest, each held-out form read in hybrid mode). Right means the top reading has the form's lemma and exact features; the last column counts a hit anywhere in the readings.
+Same protocol for every language (`cargo run --release --example heldout -- <tsv>...`: 4,000 evenly spaced lemmas, every tenth held out, a grammar built from the rest, each held-out form read in hybrid mode). Right means the top reading has the form's lemma and exact features; the last column counts a hit anywhere in the readings. All 18 run in about 40 s. `--baseline examples/heldout.baseline` prints each change against these numbers and fails on any drop.
 
 | Language | Top: features | Top: lemma + features | Any reading |
 |---|---|---|---|
-| Hungarian | 90.9% | 86.5% | 97.7% |
+| Portuguese | 96.3% | 95.3% | 99.2% |
+| Italian | 98.5% | 93.7% | 98.9% |
 | Turkish | 94.5% | 90.7% | 97.9% |
+| French | 97.1% | 87.7% | 94.2% |
+| Hungarian | 90.9% | 86.5% | 97.7% |
 | Spanish | 90.4% | 84.9% | 96.5% |
-| English | 80.0% | 79.1% | 98.8% |
-| Polish | 88.0% | 77.1% | 93.6% |
+| Czech | 89.5% | 83.6% | 95.0% |
+| Finnish | 91.8% | 81.5% | 96.1% |
 | Russian | 88.7% | 81.0% | 96.0% |
+| Dutch | 86.3% | 79.6% | 93.1% |
+| English | 80.0% | 79.1% | 98.8% |
+| Georgian | 89.9% | 78.4% | 91.7% |
 | Korean | 80.3% | 77.9% | 87.1% |
+| Polish | 88.0% | 77.1% | 93.6% |
+| Swedish | 80.7% | 77.0% | 98.1% |
 | German | 65.1% | 63.4% | 84.1% |
 | Hebrew | 81.2% | 52.5% | 88.1% |
 | Arabic | 30.6% | 19.8% | 73.0% |
+
+The gap between the last two columns is ranking: the right reading is there but not first (Swedish, English). The gap between the first two is lemma rebuilding: the features are right but the lemma is not (Hebrew, French, Finnish). Two ways of narrowing it were measured across all 18 languages and lost, so neither is done: ranking tied readings by the size of their class, and allowing any one-letter stem change (Finnish gradation is not one letter at a time).
 
 Three changes lifted the bottom of the table:
 - Participles, converbs and masdars (`V.PTCP`, `V.CVB`, `V.MSDR`) join their verb's paradigm instead of forming lexemes of their own (Korean, Arabic, Russian).
@@ -497,8 +516,9 @@ Run the full suite with `cargo test --release`.
   - It learns one value per (root, feature).
   - In hybrid mode it explains one unknown stem per word.
 - **Igbo is simplified.** Tones are ignored, and the negative is `-ghị` throughout.
-- **One word of context.** `PREFER` rules see only the next word or the previous one, so `analyze_text` cannot handle `that` as conjunction vs pronoun, or `-ed` as past vs participle after a noun. `analyze` sees no context at all.
-- **Demo-sized bundled lexicons** for every language except English. UniMorph tables (CC BY-SA) cannot be bundled with a permissively licensed crate. `morph-fst new <code>` and `Lexer::builder().unimorph(..)` download them and build the full-size grammar measured above.
+- **One word of context.** `PREFER` rules see only the next word or the previous one, so a choice that needs the whole clause (`-ed` as past vs participle) is out of reach. `analyze` sees no context at all.
+- **Hunspell import** reads affix rules, `AF` aliases, `FORBIDDENWORD` and `NEEDAFFIX`, in UTF-8 or ISO 8859-1/15. Compounding, `ICONV`/`OCONV` and morphological aliases are not read. Dictionaries that list inflected forms as stems of their own (German `de_DE_frami`) give weaker lemmas: 37.6% of UniMorph German forms, against 69.7% for Spanish `es_ES`.
+- **Demo-sized bundled lexicons** for every language except English. UniMorph tables and UD treebanks (CC BY-SA) cannot be bundled with a permissively licensed crate, and Hunspell dictionaries carry licences of their own. `morph-fst new <code>` and `Lexer::builder().unimorph(..)` download the tables and build the full-size grammar measured above.
 - **English readings tie by entry order.** ESDB gives no frequency per part of speech, so among equally short readings adjectives come first, then nouns, then verbs (the order that scored best). In the raw lattice, lexicalized entries ESDB lists as words rank first (`making<N>` before `make<V>+ing<PROG>`); `Word` flips that for open-class entries, so `analyze` puts `make` + `ing` first (it scored better on real text).
 - **Korean segments are in jamo.** A boundary inside a syllable shows as partial jamo.
 - **Punctuation** detection covers ASCII and the main Unicode punctuation blocks (`std` has no Unicode category tables).
@@ -511,12 +531,14 @@ src/spec/             parser + compiler: registers, archiphonemes, rules, guards
 src/morphotactics.rs  lattice states, register tables, guards, pins, underlying-mode registers
 src/shapes.rs         stem shapes: what unknown stems borrow from known ones
 src/generate.rs       UniMorph → .morph drafts
+src/hunspell.rs       Hunspell .aff/.dic → UniMorph rows
 src/discover.rs       word list → .morph drafts (paradigm discovery)
 src/build.rs          LexerBuilder: combines tables, words, spec and corpus
 src/word.rs           Word, Part, Kind: the everyday view of a result
 tools/english/        hand-written English grammar
 examples/build_english.rs   ESDB + grammar → data/english.morph
-examples/heldout.rs         held-out lemma + feature accuracy of a generated grammar
+examples/heldout.rs         held-out lemma + feature accuracy of generated grammars; heldout.baseline
+examples/treebank.rs        part of speech and lemma on a UD treebank; learns PREFER rules
 src/fused/            the lexer: builder (one loop), scan, hybrid, artifact
 src/induce.rs         exception learning
 src/subword/          trie + failure links, LinMaxMatch, naive reference

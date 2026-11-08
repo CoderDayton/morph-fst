@@ -84,7 +84,7 @@ impl Word {
         }
         policy.rank(&mut distinct);
         let parts = if distinct.is_empty() { Vec::new() } else { distinct.remove(0) };
-        let lemma = (kind != Kind::Unsplit && !parts.is_empty()).then(|| whole_lemma(&parts, &policy.derivation));
+        let lemma = (kind != Kind::Unsplit && !parts.is_empty()).then(|| whole_lemma(&parts, policy.derivation));
         let mut w = Word { text, kind, parts, others: distinct, lemma, detail, span };
         w.sync_detail();
         w
@@ -198,18 +198,18 @@ impl fmt::Display for Word {
 /// What a grammar says about its own tags: which are derivation, and which
 /// categories are open (new words keep arriving, so a listed entry that
 /// merely looks inflected is a lexicalization).
-pub(crate) struct Policy {
-    derivation: Vec<String>,
+pub(crate) struct Policy<'a> {
+    derivation: &'a [String],
     open: Vec<String>,
-    context: Vec<crate::spec::ContextRule>,
+    context: &'a [crate::spec::ContextRule],
 }
 
-impl Policy {
-    pub(crate) fn of(mt: &crate::morphotactics::Morphotactics) -> Self {
+impl<'a> Policy<'a> {
+    pub(crate) fn of(mt: &'a crate::morphotactics::Morphotactics) -> Self {
         let mut open: Vec<String> = mt.classes.iter().filter_map(|c| c.open_tag.clone()).collect();
         open.sort();
         open.dedup();
-        Policy { derivation: mt.derivation.clone(), open, context: mt.context.clone() }
+        Policy { derivation: &mt.derivation, open, context: &mt.context }
     }
 
     /// The grammar's `PREFER` rules over a sentence, left to right: a word
@@ -226,40 +226,35 @@ impl Policy {
             if w.others.is_empty() {
                 continue;
             }
+            // Each word's class is read once, not once per rule.
+            let view = |n: &'_ Word| (self.class(&n.parts).to_string(), n.lemma().to_string(), n.text.clone());
+            let (left, right) = (i.checked_sub(1).and_then(|j| words.get(j)).map(view), words.get(i + 1).map(view));
+            let me = view(w);
             let mut chosen = None;
-            for rule in &self.context {
-                let near = if rule.before { words.get(i + 1) } else { i.checked_sub(1).and_then(|j| words.get(j)) };
-                if !near.is_some_and(|n| self.matches(&rule.near, &n.parts, n.lemma())) {
+            for rule in self.context {
+                let near = if rule.before { &right } else { &left };
+                if !near.as_ref().is_some_and(|(c, l, t)| sel(&rule.near, c, l, t)) {
                     continue;
                 }
-                if self.matches(&rule.prefer, &w.parts, w.lemma()) {
+                if sel(&rule.prefer, &me.0, &me.1, &me.2) {
                     break;
                 }
-                if !rule.over.is_empty() && !self.matches(&rule.over, &w.parts, w.lemma()) {
+                if !rule.over.is_empty() && !sel(&rule.over, &me.0, &me.1, &me.2) {
                     continue;
                 }
-                chosen = w.others.iter().position(|r| self.matches(&rule.prefer, r, &whole_lemma(r, &self.derivation)));
+                chosen = w.others.iter().position(|r| sel(&rule.prefer, self.class(r), &whole_lemma(r, self.derivation), &w.text));
                 break;
             }
             if let (Some(k), Some(w)) = (chosen, words.get_mut(i)) {
-                w.promote(k, &self.derivation);
+                w.promote(k, self.derivation);
             }
         }
-    }
-
-    /// Does a reading (`parts`, whole-word `lemma`) match any selector?
-    fn matches(&self, sels: &[crate::spec::Sel], parts: &[Part], lemma: &str) -> bool {
-        let class = self.class(parts);
-        sels.iter().any(|s| match s {
-            crate::spec::Sel::Tag(t) => class == t || class.strip_prefix(t.as_str()).is_some_and(|rest| rest.starts_with(':')),
-            crate::spec::Sel::Lemma(l) => lemma == l,
-        })
     }
 
     /// A reading's class: the tag of its last derivation after the stem, or
     /// of its stem, up to the first `+`, `;` or space (`V+PAST` → `V`).
     fn class<'p>(&self, parts: &'p [Part]) -> &'p str {
-        let (stem, last) = derivation_span(parts, &self.derivation);
+        let (stem, last) = derivation_span(parts, self.derivation);
         let tag = parts.get(last.unwrap_or(stem)).map_or("", |p| p.tag.as_str());
         tag.split(['+', ';', ' ']).next().unwrap_or("")
     }
@@ -268,12 +263,22 @@ impl Policy {
     /// `ing`) outranks an open-class entry that is itself the inflected
     /// spelling (`going<N>`). Order is otherwise kept.
     fn rank(&self, readings: &mut [Vec<Part>]) {
-        let inflected = |r: &[Part]| r.len() >= 2 && r.last().is_some_and(|p| p.known && !derivational(&p.tag, &self.derivation));
+        let inflected = |r: &[Part]| r.len() >= 2 && r.last().is_some_and(|p| p.known && !derivational(&p.tag, self.derivation));
         let lexicalized = |r: &[Part]| matches!(r, [p] if p.known && self.open.contains(&p.tag));
         if readings.iter().any(|r| inflected(r)) {
             readings.sort_by_key(|r| lexicalized(r));
         }
     }
+}
+
+/// Does a reading of class `class` and whole-word `lemma`, of the word
+/// `text`, match any selector?
+fn sel(sels: &[crate::spec::Sel], class: &str, lemma: &str, text: &str) -> bool {
+    sels.iter().any(|s| match s {
+        crate::spec::Sel::Tag(t) => class == t || class.strip_prefix(t.as_str()).is_some_and(|rest| rest.starts_with(':')),
+        crate::spec::Sel::Lemma(l) => lemma == l,
+        crate::spec::Sel::Form(f) => text == f,
+    })
 }
 
 /// Derivation changes the word (prefixes, nominalizers); plural, tense and

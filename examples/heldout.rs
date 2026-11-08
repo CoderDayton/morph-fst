@@ -1,9 +1,16 @@
 //! How well a generated grammar reads lemmas it never saw.
 //!
-//! `cargo run --release --example heldout -- <unimorph.tsv> [lemmas]` takes
-//! `lemmas` evenly spaced lemmas (default 4000), holds out every tenth,
+//! `cargo run --release --example heldout -- <unimorph.tsv>...` takes 4000
+//! evenly spaced lemmas (`--lemmas N` to change), holds out every tenth,
 //! generates a grammar from the rest and reads each held-out form in hybrid
 //! mode. A reading is right when it has the form's lemma and exact features.
+//!
+//! One line per table: name, top-reading features, top-reading lemma and
+//! features, and lemma and features in some reading. `--save FILE` writes
+//! those lines; `--baseline FILE` prints each change against a saved run
+//! and exits with an error when any score drops. The tables are CC BY-SA:
+//! fetch them (`https://raw.githubusercontent.com/unimorph/<code>/master/<code>`),
+//! never commit them. `examples/heldout.baseline` holds the current scores.
 
 use morph_fst::generate::from_unimorph;
 use morph_fst::normalize::{compose_hangul, normalize};
@@ -56,10 +63,63 @@ fn readings(out: &WordOutput) -> Vec<Reading> {
     }
 }
 
+type Scores = [f64; 3];
+
 fn main() -> Result<(), Box<dyn std::error::Error>> {
+    let usage = "usage: heldout <unimorph.tsv>... [--lemmas N] [--save FILE] [--baseline FILE]";
+    let (mut paths, mut want, mut save, mut baseline) = (Vec::new(), 4000, None, None);
     let mut args = std::env::args().skip(1);
-    let path = args.next().ok_or("usage: heldout <unimorph.tsv> [lemmas]")?;
-    let want: usize = args.next().map_or(Ok(4000), |n| n.parse())?;
+    while let Some(a) = args.next() {
+        match a.as_str() {
+            "--lemmas" => want = args.next().ok_or(usage)?.parse()?,
+            "--save" => save = Some(args.next().ok_or(usage)?),
+            "--baseline" => baseline = Some(args.next().ok_or(usage)?),
+            _ => paths.push(a),
+        }
+    }
+    if paths.is_empty() {
+        return Err(usage.into());
+    }
+    let old: BTreeMap<String, Scores> = match &baseline {
+        Some(b) => std::fs::read_to_string(b)?.lines().filter_map(parse_line).collect(),
+        None => BTreeMap::new(),
+    };
+    let (mut lines, mut dropped) = (String::new(), Vec::new());
+    for path in &paths {
+        let name = std::path::Path::new(path).file_stem().and_then(|s| s.to_str()).unwrap_or(path).to_string();
+        let s = score(path, want)?.map(|v| (v * 10.0).round() / 10.0);
+        let line = format!("{name}\t{:.1}\t{:.1}\t{:.1}", s[0], s[1], s[2]);
+        let delta = old.get(&name).map(|o| {
+            if s.iter().zip(o).any(|(n, o)| n < o) {
+                dropped.push(name.clone());
+            }
+            format!("\t({:+.1} {:+.1} {:+.1})", s[0] - o[0], s[1] - o[1], s[2] - o[2])
+        });
+        println!("{line}{}", delta.unwrap_or_default());
+        lines.push_str(&line);
+        lines.push('\n');
+    }
+    if let Some(f) = save {
+        std::fs::write(f, lines)?;
+    }
+    if !dropped.is_empty() {
+        return Err(format!("scores dropped: {}", dropped.join(" ")).into());
+    }
+    Ok(())
+}
+
+fn parse_line(l: &str) -> Option<(String, Scores)> {
+    let mut cols = l.split('\t');
+    let name = cols.next()?.to_string();
+    let mut s = [0.0; 3];
+    for v in &mut s {
+        *v = cols.next()?.parse().ok()?;
+    }
+    Some((name, s))
+}
+
+/// Top features, top lemma + features, lemma + features in some reading (%).
+fn score(path: &str, want: usize) -> Result<Scores, Box<dyn std::error::Error>> {
     let mut by_lemma: BTreeMap<String, Vec<(String, String)>> = BTreeMap::new();
     for line in std::fs::read_to_string(path)?.lines() {
         let cols: Vec<&str> = line.split('\t').collect();
@@ -83,7 +143,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let lx = Lexer::compile(&generated.spec)?;
     let mut gold: BTreeMap<&str, Vec<(String, Feats)>> = BTreeMap::new();
     for (lemma, form, tags) in &test {
-        gold.entry(form).or_default().push((key(lemma), canon(feats(tags))));
+        gold.entry(form).or_default().push((key(&normalize(lemma, &lx.mt.norm)), canon(feats(tags))));
     }
     let (mut top_feats, mut top_both, mut any_both) = (0, 0, 0);
     for (_, form, _) in &test {
@@ -95,7 +155,5 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         any_both += found.iter().any(right) as usize;
     }
     let pc = |n: usize| 100.0 * n as f64 / test.len().max(1) as f64;
-    println!("train rows {}, classes {}, held-out forms {}", train.lines().count(), generated.paradigms, test.len());
-    println!("top reading: features {:.1}%, lemma and features {:.1}%; in some reading {:.1}%", pc(top_feats), pc(top_both), pc(any_both));
-    Ok(())
+    Ok([pc(top_feats), pc(top_both), pc(any_both)])
 }
