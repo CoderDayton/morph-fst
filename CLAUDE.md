@@ -15,19 +15,21 @@ cargo run --release --example build_english -- <ESDB scowl-pre.txt> > data/engli
 
 | Touching | Look at |
 |---|---|
-| Spec syntax, rules, registers | `src/spec/` |
-| Lattice states, guards, pins | `src/morphotactics.rs` |
-| Scan, hybrid search, artifact | `src/fused/` |
-| Stem shapes (unknown stems) | `src/shapes.rs` |
-| Subword trie, LinMaxMatch | `src/subword/` |
-| Everyday API (`analyze`, `terms`, `Word`, `lemma`, `Part`, `Kind`) | `src/word.rs`, `src/fused/mod.rs` |
-| Tokenizer (`tokenize`, spans, classes) | `src/tokenize.rs` |
-| Language builder (`Lexer::builder`) | `src/build.rs` |
-| UniMorph → spec | `src/generate.rs` |
-| Word list → spec | `src/discover.rs` |
-| Exception learning | `src/induce.rs` |
+| How the project fits together | `docs/how-it-works.md` |
+| Spec syntax, rules, registers | `src/engine/spec/` |
+| Lattice states, guards, pins | `src/engine/morphotactics.rs` |
+| Scan, hybrid search, artifact | `src/engine/fused/` |
+| Stem shapes (unknown stems) | `src/engine/shapes.rs` |
+| Subword trie, LinMaxMatch | `src/engine/subword/` |
+| Everyday API (`analyze`, `terms`, `Word`, `lemma`, `Part`, `Kind`) | `src/text/word.rs`, `src/engine/fused/mod.rs` |
+| Tokenizer (`tokenize`, spans, classes) | `src/text/tokenize.rs` |
+| Language builder (`Lexer::builder`) | `src/makers/build.rs` |
+| UniMorph / Hunspell → spec | `src/makers/generate.rs`, `src/makers/hunspell.rs` |
+| Word list → spec | `src/makers/discover.rs` |
+| Exception learning | `src/makers/induce.rs` |
 | English data | `tools/english/grammar.morph` + `examples/build_english.rs`; never hand-edit `data/english.morph` |
-| Reference interpreter | `src/oracle.rs` (tests only) |
+| Reference interpreter | `src/engine/oracle.rs` (tests only) |
+| New module | put it in `engine/`, `text/` or `makers/` and re-export it in `src/lib.rs` at the crate root |
 
 ## Guards
 

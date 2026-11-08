@@ -63,45 +63,32 @@
 #![forbid(unsafe_code)]
 #![deny(clippy::unwrap_used, clippy::expect_used, clippy::panic, clippy::unreachable, clippy::todo, clippy::unimplemented)]
 
-pub mod discover;
-pub mod generate;
-pub mod hunspell;
+// Three folders: the engine that splits words, the text layer around it,
+// and the makers that write grammars from data. Each module is re-exported
+// here, so its path (`crate::spec`, `morph_fst::generate`) does not depend
+// on the folder.
+mod engine;
+mod makers;
+mod text;
 
-mod build;
-mod tokenize;
-mod word;
+pub use makers::{discover, generate, hunspell};
+
+use makers::build;
+use text::{tokenize, word};
 
 // Internals: public for the CLI, tests and examples, not part of the API.
 #[doc(hidden)]
-pub mod codec;
+pub use engine::{codec, fused, lattice, morphotactics, oracle, shapes, spec, subword};
+#[doc(hidden)]
+pub use makers::induce;
+#[doc(hidden)]
+pub use text::{normalize, output, pretok};
 #[doc(hidden)]
 pub mod error;
 #[doc(hidden)]
-pub mod fused;
-#[doc(hidden)]
-pub mod induce;
-#[doc(hidden)]
 pub mod languages;
 #[doc(hidden)]
-pub mod lattice;
-#[doc(hidden)]
-pub mod morphotactics;
-#[doc(hidden)]
-pub mod normalize;
-#[doc(hidden)]
-pub mod oracle;
-#[doc(hidden)]
-pub mod output;
-#[doc(hidden)]
-pub mod pretok;
-#[doc(hidden)]
 pub mod rng;
-#[doc(hidden)]
-pub mod shapes;
-#[doc(hidden)]
-pub mod spec;
-#[doc(hidden)]
-pub mod subword;
 
 pub use build::LexerBuilder;
 pub use error::{Error, Result};
