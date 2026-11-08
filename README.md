@@ -94,10 +94,10 @@ Scored on the 25k tokens of the [UD English EWT](https://github.com/UniversalDep
 | Check | Result |
 |---|---|
 | Token boundaries (exact span, F1) | 97.1% |
-| Lemma of the best reading (20.6k alphabetic words) | 96.7% |
-| Part of speech of the best reading (N/V/ADJ/ADV/DET and closed classes, 20.6k words) | 80.5% |
+| Lemma of the best reading (20.1k alphabetic words) | 96.7% |
+| Part of speech of the best reading in `analyze_text` (N/V/ADJ/ADV/DET and closed classes, 20.1k words) | 86.0% |
 
-The part of speech is the weak spot: 89% of ambiguous words (`have`, `good`, `new`) do carry the right reading among their alternatives, but picking it needs the sentence. Hand-written context rules reached 83%, a gain too small to be worth English word lists in the library, so the best reading stays context-free.
+Part of speech is still the weakest check. Spelling alone gets 81.2%. The grammar's `PREFER` rules then pick a reading from the neighbouring words (a verb after `to` or a pronoun, a noun after a determiner; see [Context](#context-prefer)), which brings it to 86.0%. The rules were written against the EWT dev set and scored on test. 94.3% of words carry the right part of speech in some reading. `analyze` sees one word, so it keeps the context-free order.
 
 ### Tokenizer
 
@@ -250,6 +250,8 @@ OPTION strip_tones true               ! drop tone marks, keep dot below/above (I
 OPTION harmony surface|underlying     ! what harmony reads (default: surface)
 OPTION induce_min_count 2             ! evidence needed to learn an exception
 OPTION derivation PFX,NMLZ,AGENT      ! tags that are derivation, not inflection (`Word::lemma` keeps them)
+OPTION strip_vowel_marks true         ! drop Hebrew niqqud and Arabic harakat (set by the generator when the tables use them)
+PREFER V,MOD AFTER MOD,"to"           ! context: see below
 CLASS VOWELISH = a e ı i o ö u ü {A} {I}      ! chars and archiphonemes
 
 FEATURE vow                           ! left context: an automaton over the text before
@@ -304,6 +306,15 @@ Nouns kitab N  -> NounCont  Allow{...vowel-initial suffixes...}  [soft_p]
   - It is the same automaton, run backward from the end of the word, for prefixes that agree with what follows (Igbo i-/ị-) and for dominant harmony.
   - It costs one extra O(n) pass, only for languages that declare it.
   - Archiphonemes can read left, right or both. Guards become bitsets over (left, right) register pairs.
+
+### Context: `PREFER`
+
+```
+PREFER N,ADJ AFTER DET,"my"           ! after a determiner or `my`, take a noun or adjective reading
+PREFER ADJ OVER ADV BEFORE N          ! only an ADV best reading gives way, and only before a noun
+```
+
+In `analyze_text`, a word whose best reading does not match the preferred tags takes its first alternative that does. This happens only when the word before (`AFTER`) or after (`BEFORE`) matches. A reading's tag is its last derivation or its stem (`V` for `make+ing`), and a tag also matches its `TAG:sub` forms. `"x"` matches a lemma. The word before is read as already chosen, the word after by its best reading. The first rule that applies decides (its neighbour matches, and so do its `OVER` tags if it has any), so rules are ordered, never weighted. The displaced reading stays first among the alternatives.
 
 ### Opaque harmony: `OPTION harmony underlying`
 
@@ -386,21 +397,29 @@ Same protocol for every language (`cargo run --release --example heldout -- <tsv
 | Language | Top: features | Top: lemma + features | Any reading |
 |---|---|---|---|
 | Hungarian | 90.9% | 86.5% | 97.7% |
-| Turkish | 94.4% | 90.7% | 97.9% |
-| Spanish | 86.1% | 80.3% | 91.2% |
-| English | 79.1% | 78.3% | 98.2% |
-| Polish | 84.8% | 74.2% | 89.8% |
-| Russian | 83.7% | 76.2% | 90.5% |
-| Korean | 51.1% | 49.4% | 58.2% |
-| German | 40.4% | 38.9% | 48.6% |
-| Hebrew | 49.2% | 34.9% | 44.4% |
-| Arabic | 17.9% | 0.5% | 0.6% |
+| Turkish | 94.5% | 90.7% | 97.9% |
+| Spanish | 90.4% | 84.9% | 96.5% |
+| English | 80.0% | 79.1% | 98.8% |
+| Polish | 88.0% | 77.1% | 93.6% |
+| Russian | 88.7% | 81.0% | 96.0% |
+| Korean | 80.3% | 77.9% | 87.1% |
+| German | 65.1% | 63.4% | 84.1% |
+| Hebrew | 81.2% | 52.5% | 88.1% |
+| Arabic | 30.6% | 19.8% | 73.0% |
 
-Suffixing languages with regular stems do best. Weak spots are visible rather than hidden:
-- **Templatic morphology (Arabic, Hebrew)**: a word is a root woven into a pattern, not a stem plus suffixes, so a concatenative grammar cannot read unseen roots.
-- **Stem alternation and syncretism (German, Russian, Polish)**: umlaut and case endings that several cells share leave many readings tied.
-- **Stress shifts (Spanish `hártanos`)**: the accent moves onto the stem, which needs a rule the generator does not infer.
-- **Prefixes and circumfixes (German `ge-…-t`)**: the generator only splits suffixes.
+Three changes lifted the bottom of the table:
+- Participles, converbs and masdars (`V.PTCP`, `V.CVB`, `V.MSDR`) join their verb's paradigm instead of forming lexemes of their own (Korean, Arabic, Russian).
+- Vowel points are stripped when the tables carry them (Hebrew, Arabic).
+- A stem shape now records a change at the start of the stem as well as at the end, and hybrid mode reads it on unseen stems:
+  - a prefix (German `ge|kauf|t` → `kaufen`, Hebrew `מ|סביר` → `הסביר`);
+  - one marked letter (Spanish `trángala` → `trangar`);
+  - a capital (German `torheiten` → `Torheit`).
+
+Suffixing languages with regular stems still do best. The remaining weak spots:
+- **Templatic morphology (Arabic, Hebrew).** The pattern's prefix is read now, but the vowels woven between root letters are not. Unvocalized text leaves active and passive (or several binyanim) spelled the same, so the right reading is often present but not first.
+- **Matres lectionis (Hebrew `י`/`ו` inserted inside the stem).** One inserted or dropped letter per stem was tried and cost Hebrew and Turkish accuracy, so it is not done.
+- **Syncretism (German, Russian, Polish).** Case endings that several cells share leave readings tied.
+- **Korean.** Many misses are `하다` words listed as both adjective and verb, which spelling cannot separate.
 
 ### Discovering a grammar from a word list
 
@@ -431,6 +450,7 @@ Apart from English, these are compact demo lexicons (a few hundred morphemes eac
 - Case folding is per language (Turkish `I→ı`, `İ→i`).
 - `’` becomes `'` (and stays inside French words).
 - `strip_tones` removes tone marks in any order while keeping dot below/above.
+- `strip_vowel_marks` removes Hebrew niqqud and cantillation, Arabic harakat and tatweel. A Hebrew final letter (`ך ם ן ף ץ`) matches its medial form inside a stem, and a guessed lemma is spelled with the final form.
 - Hangul is decomposed arithmetically into jamo, so a morpheme can end mid-syllable (가 + ᆻ = 갔). Output is recomposed for display.
 
 ## Performance
@@ -444,7 +464,7 @@ Apart from English, these are compact demo lexicons (a few hundred morphemes eac
 
 Hybrid mode searches for up to 16 ranked readings per unknown word, each with a borrowed stem shape. That makes it about 3× slower than a single-guess search, and it is what lifts held-out English from 24% to 77%. Known words cost the same in both modes.
 
-The bundled English compiles in 330 ms into a 12.5 MB artifact, and has 29k stem shapes to search. Compile it once per process, or ship `to_bytes()`.
+The bundled English compiles in 325 ms into a 13.0 MB artifact, and has 29k stem shapes to search. Compile it once per process, or ship `to_bytes()`.
 
 On the full UniMorph English grammar (382k lemmas, 276k stem shapes), strict mode takes 8 µs per word and hybrid 86 µs per unknown word.
 
@@ -477,8 +497,8 @@ Run the full suite with `cargo test --release`.
   - It learns one value per (root, feature).
   - In hybrid mode it explains one unknown stem per word.
 - **Igbo is simplified.** Tones are ignored, and the negative is `-ghị` throughout.
-- **No sentence context.** Some forms are ambiguous by spelling alone: `crackle` (noun or verb), `-ed` (past or participle), bare adjectives vs nouns. Hybrid mode returns all readings ranked; picking one needs context it does not see.
-- **Demo-sized lexicons** for every language except English.
+- **One word of context.** `PREFER` rules see only the next word or the previous one, so `analyze_text` cannot handle `that` as conjunction vs pronoun, or `-ed` as past vs participle after a noun. `analyze` sees no context at all.
+- **Demo-sized bundled lexicons** for every language except English. UniMorph tables (CC BY-SA) cannot be bundled with a permissively licensed crate. `morph-fst new <code>` and `Lexer::builder().unimorph(..)` download them and build the full-size grammar measured above.
 - **English readings tie by entry order.** ESDB gives no frequency per part of speech, so among equally short readings adjectives come first, then nouns, then verbs (the order that scored best). In the raw lattice, lexicalized entries ESDB lists as words rank first (`making<N>` before `make<V>+ing<PROG>`); `Word` flips that for open-class entries, so `analyze` puts `make` + `ing` first (it scored better on real text).
 - **Korean segments are in jamo.** A boundary inside a syllable shows as partial jamo.
 - **Punctuation** detection covers ASCII and the main Unicode punctuation blocks (`std` has no Unicode category tables).

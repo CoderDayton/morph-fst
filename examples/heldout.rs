@@ -13,8 +13,19 @@ use std::collections::{BTreeMap, BTreeSet};
 type Feats = BTreeSet<String>;
 type Reading = (String, Feats);
 
-fn feats(s: &str) -> Feats {
-    s.split(';').filter(|f| !f.is_empty()).map(|f| f.trim_start_matches('?').to_string()).collect()
+fn feats(s: &str) -> impl Iterator<Item = String> + '_ {
+    s.split(';').filter(|f| !f.is_empty()).map(|f| f.trim_start_matches('?').to_string())
+}
+
+/// A whole form's features. A part of speech is dropped when a subtype of
+/// it is there: UniMorph writes a converb both `V;V.CVB` and `V.CVB`.
+fn canon(all: impl Iterator<Item = String>) -> Feats {
+    let mut f: Feats = all.collect();
+    let bases: Vec<String> = f.iter().filter_map(|t| t.split_once('.').map(|(b, _)| b.to_string())).collect();
+    for b in bases {
+        f.remove(&b);
+    }
+    f
 }
 
 fn key(lemma: &str) -> String {
@@ -31,14 +42,14 @@ fn reading(segs: &[Segment]) -> Reading {
         Segment::Morph(m) => feats(&m.tag),
         Segment::Unknown { guess, .. } => feats(guess),
     });
-    (lemma, tags.collect())
+    (lemma, canon(tags))
 }
 
 fn readings(out: &WordOutput) -> Vec<Reading> {
     match out {
         WordOutput::Analyzed { all, .. } => all
             .iter()
-            .map(|a| (a.first().map(|m| m.lemma.clone()).unwrap_or_default(), a.iter().flat_map(|m| feats(&m.tag)).collect()))
+            .map(|a| (a.first().map(|m| m.lemma.clone()).unwrap_or_default(), canon(a.iter().flat_map(|m| feats(&m.tag)))))
             .collect(),
         WordOutput::Hybrid { all, .. } => all.iter().map(|r| reading(r)).collect(),
         WordOutput::Fallback(_) => Vec::new(),
@@ -72,7 +83,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let lx = Lexer::compile(&generated.spec)?;
     let mut gold: BTreeMap<&str, Vec<(String, Feats)>> = BTreeMap::new();
     for (lemma, form, tags) in &test {
-        gold.entry(form).or_default().push((key(lemma), feats(tags)));
+        gold.entry(form).or_default().push((key(lemma), canon(feats(tags))));
     }
     let (mut top_feats, mut top_both, mut any_both) = (0, 0, 0);
     for (_, form, _) in &test {

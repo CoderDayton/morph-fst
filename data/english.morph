@@ -39,6 +39,21 @@
 OPTION max_morph_chars 48
 OPTION derivation PFX,NMLZ,ADJZ,VBZ,AGENT,ABLE,ADV
 
+! ---------------------------------------------------------------------
+!  Context: in running text, which reading a word takes beside another.
+!  The first rule that applies decides; "x" is a lemma.
+! ---------------------------------------------------------------------
+! a noun or adjective follows a determiner or a possessive
+PREFER N,ADJ AFTER DET,"my","your","his","her","its","our","their"
+! a verb follows a modal, infinitive to, a pronoun, and not
+PREFER V,MOD AFTER MOD,"to",PRON
+PREFER V,MOD OVER N AFTER "not","never"
+! an adjective, not a flat adverb, before a noun and after be or very
+PREFER ADJ OVER ADV BEFORE N
+PREFER ADJ OVER ADV AFTER "be","very","too","so","more","most"
+! that, which, what, this stand alone before a verb or punctuation
+PREFER PRON OVER DET BEFORE V,MOD,ADV,PREP,CONJ,PUNCT
+
 LEXICON Root
   0 Prefixes ;
   0 Stems ;
@@ -105,6 +120,12 @@ LEXICON Closed
   another      DET    # ;
   much         DET    # ;
   many         DET    # ;
+  this         PRON   # ;
+  that         PRON   # ;
+  these:this   PRON   # ;
+  those:that   PRON   # ;
+  what         PRON   # ;
+  which        PRON   # ;
   i            PRON   # ;
   me:i         PRON   # ;
   my           PRON   # ;

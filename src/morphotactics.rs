@@ -227,8 +227,12 @@ pub struct Morphotactics {
     pub norm: NormOptions,
     /// Tags of derivational morphemes (see `Options::derivation`).
     pub derivation: Vec<String>,
+    /// `PREFER` rules, in order (see `Options::context`).
+    pub context: Vec<crate::spec::ContextRule>,
     /// Stem shapes of the open lexicons, sorted by surface (hybrid mode).
     pub shapes: Vec<Shape>,
+    /// Each class's distinct shape prefixes, sorted (derived).
+    pub shape_pre: Vec<(ClassId, String)>,
     /// Entry ids grouped by lexicon in ascending order (derived).
     lex_sorted: bool,
     /// Lexicon of each entry, compact for binary searches (derived).
@@ -481,9 +485,12 @@ impl Morphotactics {
                 hangul_jamo: g.options.hangul_jamo,
                 apostrophe_in_words: g.options.apostrophe_in_words,
                 strip_tones: g.options.strip_tones,
+                strip_vowel_marks: g.options.strip_vowel_marks,
             },
             derivation: g.options.derivation.clone(),
+            context: g.options.context.clone(),
             shapes: Vec::new(),
+            shape_pre: Vec::new(),
             lex_sorted: false,
             lex_of: Vec::new(),
         };
@@ -500,6 +507,7 @@ impl Morphotactics {
             mt.wild_off.push(mt.wild_pool.len() as u32);
         }
         mt.shapes = shapes::derive(g);
+        mt.shape_pre = shapes::prefixes(&mt.shapes);
         mt
     }
 
@@ -928,10 +936,12 @@ impl Morphotactics {
         w.u8(self.norm.hangul_jamo as u8);
         w.u8(self.norm.apostrophe_in_words as u8);
         w.u8(self.norm.strip_tones as u8);
+        w.u8(self.norm.strip_vowel_marks as u8);
         w.u32(self.derivation.len() as u32);
         for d in &self.derivation {
             w.str(d);
         }
+        write_context(&self.context, w);
         shapes::write(&self.shapes, w);
     }
 
@@ -1042,11 +1052,13 @@ impl Morphotactics {
         let hangul_jamo = r.u8()? == 1;
         let apostrophe_in_words = r.u8()? == 1;
         let strip_tones = r.u8()? == 1;
+        let strip_vowel_marks = r.u8()? == 1;
         let n_derivation = r.count(4)?;
         let mut derivation = Vec::with_capacity(n_derivation);
         for _ in 0..n_derivation {
             derivation.push(r.string()?);
         }
+        let context = read_context(r)?;
         let shapes = shapes::read(r, &classes, &entries)?;
 
         // ---- validation ----
@@ -1184,8 +1196,10 @@ impl Morphotactics {
             rpin_wild,
             pin_feats,
             rpin_feats,
-            norm: NormOptions { case, hangul_jamo, apostrophe_in_words, strip_tones },
+            norm: NormOptions { case, hangul_jamo, apostrophe_in_words, strip_tones, strip_vowel_marks },
             derivation,
+            context,
+            shape_pre: shapes::prefixes(&shapes),
             shapes,
             lex_sorted: false,
             lex_of: Vec::new(),
@@ -1240,4 +1254,58 @@ pub(crate) fn check_csr(off: &[u32], pool_len: usize, n: usize) -> Result<()> {
         return art_err("non-monotone CSR offsets");
     }
     Ok(())
+}
+
+fn write_sels(sels: &[crate::spec::Sel], w: &mut Writer) {
+    w.u32(sels.len() as u32);
+    for s in sels {
+        let (kind, text) = match s {
+            crate::spec::Sel::Tag(t) => (0, t),
+            crate::spec::Sel::Lemma(l) => (1, l),
+        };
+        w.u8(kind);
+        w.str(text);
+    }
+}
+
+fn read_sels(r: &mut Reader) -> Result<Vec<crate::spec::Sel>> {
+    let n = r.count(5)?;
+    let mut out = Vec::with_capacity(n);
+    for _ in 0..n {
+        let kind = r.u8()?;
+        let text = r.string()?;
+        out.push(match kind {
+            0 => crate::spec::Sel::Tag(text),
+            1 => crate::spec::Sel::Lemma(text),
+            _ => return art_err("bad context selector"),
+        });
+    }
+    Ok(out)
+}
+
+fn write_context(rules: &[crate::spec::ContextRule], w: &mut Writer) {
+    w.u32(rules.len() as u32);
+    for c in rules {
+        write_sels(&c.prefer, w);
+        write_sels(&c.over, w);
+        w.u8(c.before as u8);
+        write_sels(&c.near, w);
+    }
+}
+
+fn read_context(r: &mut Reader) -> Result<Vec<crate::spec::ContextRule>> {
+    let n = r.count(13)?;
+    let mut out = Vec::with_capacity(n);
+    for _ in 0..n {
+        let prefer = read_sels(r)?;
+        let over = read_sels(r)?;
+        let before = match r.u8()? {
+            0 => false,
+            1 => true,
+            _ => return art_err("bad context side"),
+        };
+        let near = read_sels(r)?;
+        out.push(crate::spec::ContextRule { prefer, over, before, near });
+    }
+    Ok(out)
 }

@@ -5,6 +5,9 @@
 //!   (`e`+U+0301 → `é`), so decomposed input matches the spec.
 //! * Case: `lower`, `turkish` (I→ı, İ→i, then lower) or `none`.
 //! * Apostrophes: `’` → `'` when the language keeps apostrophes in words.
+//! * Vowel marks: Arabic harakat (with shadda, sukun, tanwin, dagger alif
+//!   and tatweel) and Hebrew niqqud and cantillation are dropped when the
+//!   language says so; the letters stay.
 //! * Hangul: syllables U+AC00–D7A3 are decomposed arithmetically into
 //!   conjoining jamo so a morpheme boundary may fall inside a syllable
 //!   (가 + ᆻ = 갔). [`compose_hangul`] reverses this for display.
@@ -18,6 +21,9 @@ pub struct NormOptions {
     pub apostrophe_in_words: bool,
     /// Drop tone marks (acute, grave, macron), keep dot below/above.
     pub strip_tones: bool,
+    /// Drop Arabic harakat and Hebrew niqqud and cantillation, which most
+    /// text leaves out (`كَتَبَ` → `كتب`, `שָׁלוֹם` → `שלום`).
+    pub strip_vowel_marks: bool,
 }
 
 const S_BASE: u32 = 0xAC00;
@@ -184,7 +190,45 @@ fn strip_tones(text: &str) -> String {
     out
 }
 
+/// Optional vowel and reading marks of Arabic and Hebrew script.
+pub fn is_vowel_mark(c: char) -> bool {
+    matches!(c,
+        '\u{0591}'..='\u{05BD}' | '\u{05BF}' | '\u{05C1}' | '\u{05C2}' | '\u{05C4}' | '\u{05C5}' | '\u{05C7}'
+        | '\u{0610}'..='\u{061A}' | '\u{0640}' | '\u{064B}'..='\u{065F}' | '\u{0670}' | '\u{06D6}'..='\u{06ED}')
+}
+
+/// Hebrew final letters and their medial forms: the same letter, written
+/// final at the end of a word.
+const FINALS: [(char, char); 5] = [('ך', 'כ'), ('ם', 'מ'), ('ן', 'נ'), ('ף', 'פ'), ('ץ', 'צ')];
+
+/// `c` with a Hebrew final letter made medial; other chars unchanged.
+pub fn medial(c: char) -> char {
+    FINALS.iter().find(|&&(f, _)| f == c).map_or(c, |&(_, m)| m)
+}
+
+/// End `word` in a Hebrew final letter where its last letter has one
+/// (`חנכ` → `חנך`), as Hebrew spelling does.
+pub fn with_final_letter(mut word: String) -> String {
+    if let Some(&(f, m)) = word.chars().last().and_then(|c| FINALS.iter().find(|&&(_, m)| m == c)) {
+        word.truncate(word.len() - m.len_utf8());
+        word.push(f);
+    }
+    word
+}
+
+/// `text` without [`is_vowel_mark`] chars.
+pub fn strip_vowel_marks(text: &str) -> String {
+    text.chars().filter(|&c| !is_vowel_mark(c)).collect()
+}
+
 pub fn normalize(text: &str, o: &NormOptions) -> String {
+    let unmarked;
+    let text = if o.strip_vowel_marks {
+        unmarked = strip_vowel_marks(text);
+        unmarked.as_str()
+    } else {
+        text
+    };
     let stripped;
     let text = if o.strip_tones {
         stripped = strip_tones(text);

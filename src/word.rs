@@ -85,7 +85,49 @@ impl Word {
         policy.rank(&mut distinct);
         let parts = if distinct.is_empty() { Vec::new() } else { distinct.remove(0) };
         let lemma = (kind != Kind::Unsplit && !parts.is_empty()).then(|| whole_lemma(&parts, &policy.derivation));
-        Word { text, kind, parts, others: distinct, lemma, detail, span }
+        let mut w = Word { text, kind, parts, others: distinct, lemma, detail, span };
+        w.sync_detail();
+        w
+    }
+
+    /// Move the reading `parts` shows to the front of `detail`, so
+    /// `tokens()` and `Display` agree with `parts()`.
+    fn sync_detail(&mut self) {
+        let parts = &self.parts;
+        match &mut self.detail {
+            WordOutput::Analyzed { best, all } => {
+                if let Some(i) = all.iter().position(|a| a.iter().map(known).eq(parts.iter().cloned())) {
+                    all[..=i].rotate_right(1);
+                    if let Some(a) = all.first() {
+                        *best = a.clone();
+                    }
+                }
+            }
+            WordOutput::Hybrid { segments, all, .. } => {
+                if let Some(i) = all.iter().position(|r| r.iter().map(segment).eq(parts.iter().cloned())) {
+                    all[..=i].rotate_right(1);
+                    if let Some(r) = all.first() {
+                        *segments = r.clone();
+                    }
+                }
+            }
+            WordOutput::Fallback(_) => {}
+        }
+    }
+
+    /// Make alternative `k` the best reading; the old best becomes the first
+    /// alternative.
+    fn promote(&mut self, k: usize, derivation: &[String]) {
+        if k >= self.others.len() {
+            return;
+        }
+        let best = self.others.remove(k);
+        let old = std::mem::replace(&mut self.parts, best);
+        self.others.insert(0, old);
+        if self.lemma.is_some() {
+            self.lemma = Some(whole_lemma(&self.parts, derivation));
+        }
+        self.sync_detail();
     }
 
     /// A guessed word that turned out to be a name: whole, one part.
@@ -159,6 +201,7 @@ impl fmt::Display for Word {
 pub(crate) struct Policy {
     derivation: Vec<String>,
     open: Vec<String>,
+    context: Vec<crate::spec::ContextRule>,
 }
 
 impl Policy {
@@ -166,7 +209,59 @@ impl Policy {
         let mut open: Vec<String> = mt.classes.iter().filter_map(|c| c.open_tag.clone()).collect();
         open.sort();
         open.dedup();
-        Policy { derivation: mt.derivation.clone(), open }
+        Policy { derivation: mt.derivation.clone(), open, context: mt.context.clone() }
+    }
+
+    /// The grammar's `PREFER` rules over a sentence, left to right: a word
+    /// looks at its left neighbour's reading as already chosen and its
+    /// right neighbour's best reading. For each word the first rule that
+    /// applies (neighbour matches, and `OVER` if given) decides; rules are
+    /// ordered, never weighed.
+    pub(crate) fn apply_context(&self, words: &mut [Word]) {
+        if self.context.is_empty() {
+            return;
+        }
+        for i in 0..words.len() {
+            let Some(w) = words.get(i) else { continue };
+            if w.others.is_empty() {
+                continue;
+            }
+            let mut chosen = None;
+            for rule in &self.context {
+                let near = if rule.before { words.get(i + 1) } else { i.checked_sub(1).and_then(|j| words.get(j)) };
+                if !near.is_some_and(|n| self.matches(&rule.near, &n.parts, n.lemma())) {
+                    continue;
+                }
+                if self.matches(&rule.prefer, &w.parts, w.lemma()) {
+                    break;
+                }
+                if !rule.over.is_empty() && !self.matches(&rule.over, &w.parts, w.lemma()) {
+                    continue;
+                }
+                chosen = w.others.iter().position(|r| self.matches(&rule.prefer, r, &whole_lemma(r, &self.derivation)));
+                break;
+            }
+            if let (Some(k), Some(w)) = (chosen, words.get_mut(i)) {
+                w.promote(k, &self.derivation);
+            }
+        }
+    }
+
+    /// Does a reading (`parts`, whole-word `lemma`) match any selector?
+    fn matches(&self, sels: &[crate::spec::Sel], parts: &[Part], lemma: &str) -> bool {
+        let class = self.class(parts);
+        sels.iter().any(|s| match s {
+            crate::spec::Sel::Tag(t) => class == t || class.strip_prefix(t.as_str()).is_some_and(|rest| rest.starts_with(':')),
+            crate::spec::Sel::Lemma(l) => lemma == l,
+        })
+    }
+
+    /// A reading's class: the tag of its last derivation after the stem, or
+    /// of its stem, up to the first `+`, `;` or space (`V+PAST` → `V`).
+    fn class<'p>(&self, parts: &'p [Part]) -> &'p str {
+        let (stem, last) = derivation_span(parts, &self.derivation);
+        let tag = parts.get(last.unwrap_or(stem)).map_or("", |p| p.tag.as_str());
+        tag.split(['+', ';', ' ']).next().unwrap_or("")
     }
 
     /// Among equally good readings, a productive stem + inflection (`go` +
@@ -188,9 +283,16 @@ fn derivational(tag: &str, listed: &[String]) -> bool {
     listed.iter().any(|d| tag == d || tag.strip_prefix(d.as_str()).is_some_and(|rest| rest.starts_with(':')))
 }
 
-fn whole_lemma(parts: &[Part], listed: &[String]) -> String {
+/// The stem's index (first non-derivational part) and the last derivation
+/// after it, if any.
+fn derivation_span(parts: &[Part], listed: &[String]) -> (usize, Option<usize>) {
     let stem = parts.iter().position(|p| !derivational(&p.tag, listed)).unwrap_or(0);
-    let last_derived = parts.iter().enumerate().skip(stem + 1).filter(|(_, p)| derivational(&p.tag, listed)).map(|(i, _)| i).next_back();
+    let last = parts.iter().enumerate().skip(stem + 1).filter(|(_, p)| derivational(&p.tag, listed)).map(|(i, _)| i).next_back();
+    (stem, last)
+}
+
+fn whole_lemma(parts: &[Part], listed: &[String]) -> String {
+    let (stem, last_derived) = derivation_span(parts, listed);
     match last_derived {
         Some(end) => parts.iter().take(end + 1).map(|p| p.text.as_str()).collect(),
         None => parts.iter().take(stem).map(|p| p.text.as_str()).chain(parts.get(stem).map(|p| p.lemma.as_str())).collect(),

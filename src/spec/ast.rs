@@ -232,6 +232,8 @@ pub struct Options {
     /// Remove tone marks (acute, grave, macron) but keep dot-below/above
     /// (Igbo `ị́` → `ị`).
     pub strip_tones: bool,
+    /// Remove Arabic and Hebrew vowel marks (spec and input).
+    pub strip_vowel_marks: bool,
     /// `surface` (default): registers read the surface text. `underlying`:
     /// registers read each morpheme's underlying form (its realisation
     /// before rules, or an explicit `@tier=` form) — opaque harmony.
@@ -242,6 +244,30 @@ pub struct Options {
     /// matches itself and its `TAG:sub` forms. Everything else is inflection:
     /// a word's lemma keeps derivation and drops inflection.
     pub derivation: Vec<String>,
+    /// `PREFER` lines: which reading a word takes next to another word,
+    /// in order (the first that applies decides).
+    pub context: Vec<ContextRule>,
+}
+
+/// What a context rule looks for in a word's best reading.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum Sel {
+    /// The reading's class: the tag of its last derivation, or of its stem.
+    /// A tag also matches its `TAG:sub` forms.
+    Tag(String),
+    /// The word's lemma (`"to"`, `"be"`).
+    Lemma(String),
+}
+
+/// `PREFER prefer [OVER over] AFTER|BEFORE near`: when the word before (or
+/// after) matches `near`, a word whose best reading matches `over` (any, if
+/// empty) but not `prefer` takes its first reading that matches `prefer`.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct ContextRule {
+    pub prefer: Vec<Sel>,
+    pub over: Vec<Sel>,
+    pub before: bool,
+    pub near: Vec<Sel>,
 }
 
 impl Default for Options {
@@ -253,9 +279,11 @@ impl Default for Options {
             hangul_jamo: false,
             apostrophe_in_words: false,
             strip_tones: false,
+            strip_vowel_marks: false,
             underlying: false,
             induce_min_count: 2,
             derivation: Vec::new(),
+            context: Vec::new(),
         }
     }
 }

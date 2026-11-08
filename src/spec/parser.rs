@@ -13,20 +13,33 @@ enum Section {
     Archi,
 }
 
+/// Is `OPTION <name> true` set? Read before parsing, since it changes the
+/// text that is parsed.
+fn option_on(text: &str, name: &str) -> bool {
+    text.contains(name)
+        && text.lines().any(|l| {
+            let t: Vec<&str> = l.split('!').next().unwrap_or("").split_whitespace().collect();
+            t == ["OPTION", name, "true"]
+        })
+}
+
+/// The spec text as the lexer reads input: Hangul in jamo, so morpheme
+/// boundaries may fall inside a syllable (가 + ᆻ), and without vowel marks
+/// when input drops them.
+fn prepare(text: &str) -> std::borrow::Cow<'_, str> {
+    let mut out = std::borrow::Cow::Borrowed(text);
+    if option_on(text, "hangul_jamo") {
+        out = crate::normalize::decompose_hangul(&out).into();
+    }
+    if option_on(text, "strip_vowel_marks") {
+        out = crate::normalize::strip_vowel_marks(&out).into();
+    }
+    out
+}
+
 pub fn parse_spec(text: &str) -> Result<Spec> {
-    // Hangul specs are written in syllables; decompose before parsing so
-    // morpheme boundaries may fall inside a syllable (e.g. 가 + ᆻ).
-    let jamo = text.contains("hangul_jamo") && text.lines().any(|l| {
-        let t: Vec<&str> = l.split('!').next().unwrap_or("").split_whitespace().collect();
-        t == ["OPTION", "hangul_jamo", "true"]
-    });
-    let owned;
-    let text = if jamo {
-        owned = crate::normalize::decompose_hangul(text);
-        owned.as_str()
-    } else {
-        text
-    };
+    let prepared = prepare(text);
+    let text = prepared.as_ref();
 
     let mut spec = Spec::default();
     let mut section = Section::None;
@@ -57,6 +70,8 @@ pub fn parse_spec(text: &str) -> Result<Spec> {
                 });
             }
             "CLASS" if toks.get(2) == Some(&"=") => spec.classes.push(parse_class(&toks, line)?),
+            // An entry ends in `;` and a piece list is not a rule, so `PREFER` stays spellable.
+            "PREFER" if section != Section::Pieces && !body.ends_with(';') => spec.options.context.push(parse_prefer(&toks, line)?),
             "LEXICON" => {
                 if toks.len() < 2 || toks.len() > 3 {
                     return spec_err(line, "expected `LEXICON Name [@open=TAG]`");
@@ -110,6 +125,31 @@ pub fn parse_spec(text: &str) -> Result<Spec> {
     Ok(spec)
 }
 
+/// `PREFER N,ADJ [OVER ADV] AFTER|BEFORE DET,"to"`.
+fn parse_prefer(toks: &[&str], line: usize) -> Result<ContextRule> {
+    let usage = "expected `PREFER tags [OVER tags] AFTER|BEFORE tags`, tags comma-separated, a lemma in quotes";
+    let sels = |t: &str| -> Result<Vec<Sel>> {
+        t.split(',')
+            .map(|s| match s.strip_prefix('"').and_then(|s| s.strip_suffix('"')) {
+                Some(l) if !l.is_empty() => Ok(Sel::Lemma(l.to_string())),
+                None if !s.is_empty() && !s.contains('"') => Ok(Sel::Tag(s.to_string())),
+                _ => spec_err(line, usage),
+            })
+            .collect()
+    };
+    let (prefer, over, side, near) = match toks {
+        [_, p, "OVER", o, side, n] => (sels(p)?, sels(o)?, *side, sels(n)?),
+        [_, p, side, n] => (sels(p)?, Vec::new(), *side, sels(n)?),
+        _ => return spec_err(line, usage),
+    };
+    let before = match side {
+        "AFTER" => false,
+        "BEFORE" => true,
+        _ => return spec_err(line, usage),
+    };
+    Ok(ContextRule { prefer, over, before, near })
+}
+
 fn parse_option(o: &mut Options, toks: &[&str], line: usize) -> Result<()> {
     if toks.len() != 3 {
         return spec_err(line, "expected `OPTION key value`");
@@ -128,6 +168,7 @@ fn parse_option(o: &mut Options, toks: &[&str], line: usize) -> Result<()> {
         "hangul_jamo" => o.hangul_jamo = boolean(toks[2])?,
         "apostrophe_in_words" => o.apostrophe_in_words = boolean(toks[2])?,
         "strip_tones" => o.strip_tones = boolean(toks[2])?,
+        "strip_vowel_marks" => o.strip_vowel_marks = boolean(toks[2])?,
         "harmony" => {
             o.underlying = match toks[2] {
                 "surface" => false,

@@ -175,3 +175,27 @@ fn shapes_survive_save_and_load() -> TestResult {
     assert_eq!(best(&back, "blorties"), "blorty?N+PL");
     Ok(())
 }
+
+fn stems_spec(stems: &str) -> String {
+    format!("LEXICON Root\n  0 Stems ;\nLEXICON Stems @open=N\n{stems}LEXICON Infl\n  s PL # ;\n")
+}
+
+/// One stem's plain and letter-change alignments must not add up to the
+/// two supporters a shape needs.
+#[test]
+fn one_stem_with_a_letter_change_lends_no_shape() -> TestResult {
+    let lx = Lexer::compile(&stems_spec("  hábl:habl N Infl ;\n"))?;
+    assert!(lx.mt.shapes.is_empty(), "{:?}", lx.mt.shapes);
+    Ok(())
+}
+
+/// A letter change is rebuilt on the head's last marked letter, so it is
+/// learned only where that is the letter that changed.
+#[test]
+fn letter_changes_rebuild_where_they_were_learned() -> TestResult {
+    let lx = Lexer::compile(&stems_spec("  äxä:axä N Infl ;\n  äkä:akä N Infl ;\n"))?;
+    let WordOutput::Hybrid { all, .. } = lx.lex("äzäs", Mode::Hybrid) else { return Err("not hybrid".into()) };
+    let lemmas: Vec<&str> = all.iter().flatten().filter_map(|s| if let Segment::Unknown { lemma, .. } = s { Some(lemma.as_str()) } else { None }).collect();
+    assert!(!lemmas.contains(&"äza"), "{lemmas:?}");
+    Ok(())
+}

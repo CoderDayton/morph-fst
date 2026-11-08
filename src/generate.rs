@@ -16,7 +16,12 @@
 //! * each stem variant's suffix set is a paradigm class, shared by every
 //!   variant with the same set;
 //! * forms equal to the stem, without features beyond the part of speech,
-//!   or with no split (suppletion: `went`) are listed whole.
+//!   or with no split (suppletion: `went`) are listed whole;
+//! * forms written with Arabic or Hebrew vowel marks turn on
+//!   `strip_vowel_marks`, so the lexer reads text with or without them;
+//! * a part-of-speech subtype (`V.PTCP`, `V.CVB`, `V.MSDR`) is a form of
+//!   the lexeme of its base (`V`) and keeps the subtype as a feature, so
+//!   participles, converbs and verbal nouns share the verb's paradigm.
 //!
 //! The spec accepts exactly the input rows, each with its lemma and
 //! features. Rules, harmony and archiphonemes are not inferred; the output
@@ -112,7 +117,8 @@ fn read_tables(tsv: &str) -> Tables {
     }
     let hangul = rows.iter().any(|(_, (_, f, _))| f.chars().any(|c| ('\u{AC00}'..='\u{D7A3}').contains(&c)));
     let apostrophe = rows.iter().any(|(_, (_, f, _))| f.contains(['\'', '\u{2019}']));
-    let norm = NormOptions { hangul_jamo: hangul, apostrophe_in_words: apostrophe, ..NormOptions::default() };
+    let marks = rows.iter().any(|(_, (_, f, _))| f.chars().any(crate::normalize::is_vowel_mark));
+    let norm = NormOptions { hangul_jamo: hangul, apostrophe_in_words: apostrophe, strip_vowel_marks: marks, ..NormOptions::default() };
     let mut groups: BTreeMap<(String, String), BTreeSet<Cell>> = BTreeMap::new();
     let mut longest = 0;
     for (line, (lemma, raw_form, feats)) in rows {
@@ -122,8 +128,14 @@ fn read_tables(tsv: &str) -> Tables {
             continue;
         }
         let pos_i = feats.iter().position(|f| POS.contains(f));
-        let pos = pos_i.map_or("X", |i| feats[i]).to_string();
-        let rest: Vec<&str> = feats.iter().enumerate().filter(|&(i, _)| Some(i) != pos_i).map(|(_, f)| *f).collect();
+        // A subtype (`V.CVB`: converb) is a form of its part of speech's
+        // lexeme; it stays a feature of that form.
+        let (pos, sub) = match pos_i.map(|i| feats[i]) {
+            Some(p) => p.split_once('.').map_or((p, false), |(base, _)| (base, true)),
+            None => ("X", false),
+        };
+        let rest: Vec<&str> = feats.iter().enumerate().filter(|&(i, f)| if sub { *f != pos } else { Some(i) != pos_i }).map(|(_, f)| *f).collect();
+        let pos = pos.to_string();
         longest = longest.max(form.chars().count());
         groups.entry((pos, lemma.to_string())).or_default().insert((form, rest.join(";")));
     }
@@ -236,6 +248,9 @@ fn render(t: &Tables, lx: &Lexicons) -> String {
     if t.norm.apostrophe_in_words {
         out.push_str("OPTION apostrophe_in_words true\n");
     }
+    if t.norm.strip_vowel_marks {
+        out.push_str("OPTION strip_vowel_marks true\n");
+    }
     if t.longest > 64 {
         let _ = writeln!(out, "OPTION max_morph_chars {}", t.longest.min(4096));
     }
@@ -266,9 +281,14 @@ fn fold(s: &str) -> String {
     s.chars().map(base_letter).collect()
 }
 
-/// Longest prefix (folded) shared by all forms.
-fn common_prefix(cells: &BTreeSet<Cell>) -> String {
-    let mut forms = cells.iter().map(|(f, _)| fold(f));
+/// Longest prefix (folded) shared by the forms that start with the
+/// lemma's first letter, or by all forms when none does. A prefixed form
+/// (`gemacht` beside `machen`) would leave no common prefix at all.
+fn common_prefix(cells: &BTreeSet<Cell>, lemma: &str) -> String {
+    let first = lemma.chars().next();
+    let starts = |f: &String| f.chars().next() == first;
+    let folded: Vec<String> = cells.iter().map(|(f, _)| fold(f)).collect();
+    let mut forms = if folded.iter().any(starts) { folded.iter().filter(|f| starts(f)).cloned().collect::<Vec<_>>() } else { folded }.into_iter();
     let Some(first) = forms.next() else { return String::new() };
     forms.fold(first, |p, f| p.chars().zip(f.chars()).take_while(|(a, b)| a == b).map(|(a, _)| a).collect())
 }
@@ -277,8 +297,8 @@ fn common_prefix(cells: &BTreeSet<Cell>) -> String {
 /// split at their common prefix.
 fn seed_suffixes(t: &Tables) -> BTreeSet<(&str, &str, &str)> {
     let mut count: BTreeMap<(&str, &str, &str), usize> = BTreeMap::new();
-    for ((pos, _), cells) in &t.groups {
-        let lcp = common_prefix(cells);
+    for ((pos, lemma), cells) in &t.groups {
+        let lcp = common_prefix(cells, &fold(&normalize(lemma, &t.norm)));
         for (form, rest) in cells {
             if let Some((_, sfx)) = split_at_stem(form, &lcp).filter(|(_, s)| !s.is_empty() && !rest.is_empty()) {
                 *count.entry((pos, rest, sfx)).or_default() += 1;
@@ -304,7 +324,7 @@ fn choose_stem(lemma: &str, pos: &str, cells: &BTreeSet<Cell>, seed: &BTreeSet<(
         }
     }
     if best.0 == 0 {
-        common_prefix(cells)
+        common_prefix(cells, lemma)
     } else {
         best.1
     }

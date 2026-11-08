@@ -118,7 +118,7 @@ impl Lexer {
             .collect();
         let lexed: Vec<&str> = normalized.iter().flatten().map(String::as_str).collect();
         let mut outs = self.lex_words(&lexed, self.mode, threads).into_iter();
-        tokens
+        let mut words: Vec<crate::Word> = tokens
             .iter()
             .zip(normalized)
             .enumerate()
@@ -134,7 +134,9 @@ impl Lexer {
                     None => crate::Word::literal(&surface.replace('\u{2019}', "'"), t.class(), t.span()),
                 }
             })
-            .collect()
+            .collect();
+        policy.apply_context(&mut words);
+        words
     }
 
     /// Search terms for `text`: one lowercase key per word, its lemma, so a

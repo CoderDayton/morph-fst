@@ -56,7 +56,8 @@ pub enum WordOutput {
     /// FST rejected the word; deterministic subword split.
     Fallback(Vec<SubToken>),
     /// Hybrid mode: `all` holds every reading best first (`segments` = `all[0]`);
-    /// `unknown_chars`: stem chars of the best reading no known ending explains.
+    /// `unknown_chars`: stem chars no known ending explains, in the lexer's
+    /// top-ranked reading (a `Word` may put another reading first).
     Hybrid { segments: Vec<Segment>, all: Vec<Vec<Segment>>, unknown_chars: u32 },
 }
 

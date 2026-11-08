@@ -69,6 +69,23 @@ First release.
   78.5% → 80.3%, English 78.0% → 78.3%; Hungarian unchanged. English
   treebank lemma accuracy 96.7% → 96.6% (a few short unknown words now read
   as stem + `s`). English `as` joined the closed class.
+- Context rules: `PREFER tags [OVER tags] AFTER|BEFORE tags` (`"x"` for a
+  lemma). In `analyze_text`, a word takes its first reading that fits its
+  neighbour; rules are ordered, never weighted. English declares six
+  (and `this`/`that`/`what`/`which` gained pronoun readings). UD EWT test,
+  part of speech of the best reading: 81.2% → 86.0%; lemma 96.6% → 96.7%.
+- Stem shapes record a change at the start of the stem: a prefix
+  (`ge|kauf|t` → `kaufen`), one marked letter (`trángala` → `trangar`) and
+  a capital (`torheiten` → `Torheit`). Hybrid mode reads those prefixes on
+  unseen stems. The generator merges sub-POS (`V.PTCP`, `V.CVB`, `V.MSDR`)
+  into their verb's lexeme, and finds stems behind prefixes.
+  `OPTION strip_vowel_marks` drops niqqud and harakat (set by the generator
+  when the tables use them), and Hebrew final letters match their medial
+  forms. Artifact format version 7: saved `.mcfu` files must be rebuilt.
+  Held-out UniMorph lemma and features, top reading: German 38.9% → 63.4%,
+  Korean 49.4% → 77.9%, Hebrew 34.9% → 52.5%, Arabic 0.5% → 19.8%, Spanish
+  80.3% → 84.9%, Russian 76.2% → 81.0%, Polish 74.2% → 77.1%, English
+  78.3% → 79.1%; Turkish and Hungarian unchanged.
 - `Lexer::terms`: search keys (one lemma per word; numbers, emails, URLs and
   abbreviations whole; punctuation, symbols and clitics dropped), plus the
   `search` example. Form conflation F1 on UD EWT: 80.4% against Porter2's 61.2%.

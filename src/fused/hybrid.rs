@@ -49,7 +49,8 @@ enum Step {
     Morph { entry: u32 },
     Stem { head_end: u32, shape: Option<u32> },
     /// A queued head ending at `pos`, expanded when popped (layer [`HEAD`]).
-    Head,
+    /// The first `pre` bytes are a shape prefix, not part of the head.
+    Head { pre: u32 },
 }
 
 #[derive(Clone, Copy)]
@@ -84,7 +85,7 @@ fn signature(chart: &Chart, mut d: u32) -> Signature {
                 let before = chart.arena.get(x.prev as usize).map_or(NONE, |p| p.state);
                 sig.push([x.pos, head_end, NONE, before, x.state]);
             }
-            Step::Head => {}
+            Step::Head { .. } => {}
         }
         d = x.prev;
     }
@@ -160,7 +161,8 @@ impl Chart {
     fn pop(&mut self) -> Option<Option<u32>> {
         let Reverse((_, d)) = self.heap.pop()?;
         let Some(x) = self.arena.get(d as usize) else { return Some(None) };
-        let start = if x.layer == HEAD { self.arena.get(x.prev as usize).map_or(0, |p| p.pos) } else { 0 };
+        let pre = if let Step::Head { pre } = x.step { pre } else { 0 };
+        let start = if x.layer == HEAD { self.arena.get(x.prev as usize).map_or(0, |p| p.pos + pre) } else { 0 };
         let n = self.pops.entry((x.pos, x.layer, x.state, start)).or_insert(0);
         if *n >= self.k {
             return Some(None);
@@ -346,17 +348,25 @@ impl Lexer {
         sc.arcs = arcs;
     }
 
-    /// An unknown stem may start after `d`: queue its one-character head.
-    /// Heads are grown lazily, one character per pop, so heads too long to
-    /// rank are never expanded.
+    /// An unknown stem may start after `d`: queue its one-character head,
+    /// and one after each shape prefix of the class spelled there (the
+    /// prefix is explained, so it costs nothing). Heads are grown lazily,
+    /// one character per pop, so heads too long to rank are never expanded.
     fn start_stem(&self, w: &Word, chart: &mut Chart, d: u32) {
         let Some(&from) = chart.arena.get(d as usize) else { return };
         if !self.mt.wildcard_allowed(from.state) {
             return;
         }
-        let Some(&h) = w.bounds.get(w.char_idx(from.pos as usize) + 1) else { return };
-        let cost = from.cost.plus(Cost { head: 1, ..Cost::default() });
-        chart.push(Deriv { cost, prev: d, pos: h as u32, layer: HEAD, state: from.state, step: Step::Head });
+        let p = from.pos as usize;
+        let class = self.mt.class_of(from.state);
+        let rest = w.span(p, w.text.len());
+        let lo = self.mt.shape_pre.partition_point(|(c, _)| *c < class);
+        let pres = self.mt.shape_pre.get(lo..).unwrap_or(&[]).iter().take_while(|(c, _)| *c == class).filter(|(_, s)| rest.starts_with(s.as_str())).map(|(_, s)| s.len());
+        for pre in std::iter::once(0).chain(pres) {
+            let Some(&h) = w.bounds.get(w.char_idx(p + pre) + 1) else { continue };
+            let cost = from.cost.plus(Cost { head: 1, ..Cost::default() });
+            chart.push(Deriv { cost, prev: d, pos: h as u32, layer: HEAD, state: from.state, step: Step::Head { pre: pre as u32 } });
+        }
     }
 
     /// Expand the queued head `q`: the head alone, or followed by known stem
@@ -366,10 +376,13 @@ impl Lexer {
         let Some(&x) = chart.arena.get(q as usize) else { return };
         let Some(&from) = chart.arena.get(x.prev as usize) else { return };
         let (d, p, h, s) = (x.prev, from.pos as usize, x.pos as usize, from.state);
+        let pre = if let Step::Head { pre } = x.step { pre } else { 0 };
         let head = x.cost.head - from.cost.head;
         let mut wild = std::mem::take(&mut sc.wild);
         wild.clear();
-        mt.wildcard_into(s, w.span(p, h), &mut wild);
+        if pre == 0 {
+            mt.wildcard_into(s, w.span(p, h), &mut wild);
+        }
         for &(t, exc) in wild.iter().filter(|&&(t, _)| self.alive(w, 1, h, t)) {
             let cost = from.cost.plus(Cost { head, exc, unsupported: u32::MAX, morphs: 1 });
             chart.push(Deriv { cost, prev: d, pos: h as u32, layer: 1, state: t, step: Step::Stem { head_end: h as u32, shape: None } });
@@ -401,7 +414,7 @@ impl Lexer {
         }
         if let Some(&h2) = w.bounds.get(k + 1) {
             let cost = x.cost.plus(Cost { head: 1, ..Cost::default() });
-            chart.push(Deriv { cost, prev: d, pos: h2 as u32, layer: HEAD, state: s, step: Step::Head });
+            chart.push(Deriv { cost, prev: d, pos: h2 as u32, layer: HEAD, state: s, step: Step::Head { pre } });
         }
     }
 
@@ -413,14 +426,17 @@ impl Lexer {
         let Some(&x) = chart.arena.get(q as usize) else { return };
         let Some(&from) = chart.arena.get(x.prev as usize) else { return };
         let (d, h, head) = (x.prev, x.pos as usize, x.cost.head - from.cost.head);
+        let p = from.pos as usize;
+        let pre = if let Step::Head { pre } = x.step { pre as usize } else { 0 };
         let class = mt.class_of(from.state);
         let spelled = w.span(h, r);
+        let (prefix, head_text) = (w.span(p, p + pre), w.span(p + pre, h));
         for i in range {
             let Some(sh) = mt.shapes.get(i) else { break };
             if sh.surface != spelled {
                 break;
             }
-            if sh.class != class {
+            if sh.class != class || sh.pre != prefix || sh.sub.is_some_and(|(c, _)| !head_text.contains(c)) {
                 continue;
             }
             self.step_closed(w, 1, from.state, sh.entry, (h, r), sc);
@@ -502,7 +518,7 @@ impl Lexer {
     /// A stem step with no ending of known stems behind it.
     fn bare_head(&self, step: Step) -> bool {
         match step {
-            Step::Stem { shape, .. } => shape.and_then(|i| self.mt.shapes.get(i as usize)).is_none_or(|s| s.surface.is_empty() && s.lemma.is_empty()),
+            Step::Stem { shape, .. } => shape.and_then(|i| self.mt.shapes.get(i as usize)).is_none_or(crate::shapes::Shape::is_bare),
             _ => false,
         }
     }
@@ -535,7 +551,7 @@ impl Lexer {
                     (Some(entry), Segment::Morph(Morph { start: a, end: b, surface: en.surface.clone(), lemma: en.lemma.clone(), tag: en.tag.clone() }))
                 }
                 Step::Stem { head_end, shape } => self.stem_segment(w, from.state, x.state, (a, head_end as usize, b), shape)?,
-                Step::Start | Step::Head => break,
+                Step::Start | Step::Head { .. } => break,
             };
             if let Some(en) = entry.and_then(|e| mt.entries.get(e as usize)) {
                 segs.extend(en.zeros.iter().rev().map(|z| Segment::Morph(Morph::zero(b, z))));
@@ -551,13 +567,12 @@ impl Lexer {
     /// morphemes follow it (its shape's entry).
     fn stem_segment(&self, w: &Word, before: u32, after: u32, (a, h, b): (usize, usize, usize), shape: Option<u32>) -> Option<(Option<u32>, Segment)> {
         let mt = &self.mt;
-        let head = w.span(a, h);
         let (entry, lemma, guess) = match shape.and_then(|i| mt.shapes.get(i as usize)) {
-            Some(sh) => (Some(sh.entry), format!("{head}{}", sh.lemma), mt.entries.get(sh.entry as usize)?.tag.clone()),
+            Some(sh) => (Some(sh.entry), sh.lemma_of(w.span(a + sh.pre.len(), h))?, mt.entries.get(sh.entry as usize)?.tag.clone()),
             None => {
                 let exc = mt.describe_exceptions(before, after);
                 let tag = mt.open_tag(before);
-                (None, head.to_string(), if exc.is_empty() { tag.to_string() } else { format!("{tag} {exc}") })
+                (None, crate::normalize::with_final_letter(w.span(a, h).to_string()), if exc.is_empty() { tag.to_string() } else { format!("{tag} {exc}") })
             }
         };
         let surface = w.span(a, b).to_string();
