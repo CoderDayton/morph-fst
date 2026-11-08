@@ -9,12 +9,16 @@ use crate::subword::{WpTrie, ROOT_INIT};
 pub const MAGIC: &[u8; 4] = b"MCFU";
 
 impl Lexer {
-    /// Serialize the compiled lexer (load it back with [`Self::from_bytes`]
-    /// to skip compilation).
+    /// Serialize the compiled lexer and its [`Mode`](super::Mode) (load it
+    /// back with [`Self::from_bytes`] to skip compilation).
     pub fn to_bytes(&self) -> Vec<u8> {
         let mut w = Writer::new();
         self.mt.write(&mut w);
         self.trie.write(&mut w);
+        w.u8(match self.mode {
+            super::Mode::Strict => 0,
+            super::Mode::Hybrid => 1,
+        });
         codec::wrap(MAGIC, &w.into_inner())
     }
 
@@ -24,6 +28,11 @@ impl Lexer {
         let mut r = Reader::new(codec::unwrap(MAGIC, data)?);
         let mt = Morphotactics::read(&mut r)?;
         let trie = WpTrie::read(&mut r, mt.entries.len())?;
+        let mode = match r.u8()? {
+            0 => super::Mode::Strict,
+            1 => super::Mode::Hybrid,
+            _ => return art_err("bad mode"),
+        };
         r.finish()?;
         // Each entry must sit exactly at the node spelling its surface.
         if trie.payload_total() != mt.entries.len() {
@@ -41,6 +50,6 @@ impl Lexer {
                 return art_err("entry not attached at its surface node");
             }
         }
-        Ok(Lexer { mt, trie, mode: super::Mode::Hybrid })
+        Ok(Lexer { mt, trie, mode })
     }
 }

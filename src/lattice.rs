@@ -11,7 +11,7 @@
 //! `(longer morpheme first, lower entry id)`.
 
 use std::cmp::{Ordering, Reverse};
-use std::collections::BTreeSet;
+use std::collections::{BTreeSet, BinaryHeap};
 
 use crate::morphotactics::Morphotactics;
 use crate::output::{Analysis, Morph};
@@ -246,85 +246,68 @@ impl Lattice {
         (x.from_pos, x.to_pos, x.entry)
     }
 
-    /// Best analysis plus up to `cap` analyses in canonical order.
+    /// Best analysis plus the `cap` best distinct analyses, best first (the
+    /// order of the module docs). Paths that spell the same analysis through
+    /// different entries or states count once.
     pub fn decode(&self, mt: &Morphotactics, cap: usize) -> Option<(Analysis, Vec<Analysis>)> {
         if !self.accepts(mt) {
             return None;
         }
-        let (good, len, next) = self.solve(mt);
-        // Best start node.
-        let mut best: Option<usize> = None;
-        for v in 0..self.node_off[1] {
-            if !good[v] {
-                continue;
+        let (good, _, next) = self.solve(mt);
+        // Lawler: an item is every path through `path[..fixed]`; its best
+        // member is `path`, so items pop in rank order. A popped item splits
+        // by where a path first leaves the rest of `path`. The first item
+        // popped is the best analysis.
+        let chain = |path: &mut Vec<usize>, v: usize| {
+            let mut c = next[v];
+            while c != NO {
+                path.push(c);
+                c = next[self.to_node[c]];
             }
-            best = Some(match best {
-                None => v,
-                Some(b) => {
-                    let ord = len[v].cmp(&len[b]).then_with(|| self.chain_cmp(&next, next[v], next[b]));
-                    if ord == Ordering::Less {
-                        v
-                    } else {
-                        b
-                    }
-                }
-            });
+        };
+        type Rank = (usize, Vec<(Reverse<u32>, u32)>);
+        /// (rank, path, start node, fixed prefix length)
+        type Item = Reverse<(Rank, Vec<usize>, usize, usize)>;
+        type Arcs = Vec<(u32, u32, u32)>;
+        let rank = |p: &[usize]| -> Rank { (p.len(), p.iter().map(|&e| self.key(e)).collect()) };
+        let mut heap: BinaryHeap<Item> = BinaryHeap::new();
+        for v in (0..self.node_off[1]).filter(|&v| good[v]) {
+            let mut p = Vec::new();
+            chain(&mut p, v);
+            heap.push(Reverse((rank(&p), p, v, 0)));
         }
-        let mut best_arcs = Vec::new();
-        let mut cur = next[best?];
-        while cur != NO {
-            best_arcs.push(self.arc(cur));
-            cur = next[self.to_node[cur]];
-        }
-
-        // Bounded enumeration (DFS over co-reachable nodes).
-        const ENUM_LIMIT: usize = 512;
         let mut budget: usize = 200_000;
-        let mut found: BTreeSet<Vec<(u32, u32, u32)>> = BTreeSet::new();
-        found.insert(best_arcs.clone());
-        let last = self.node_off[self.n as usize];
-        'outer: for v in 0..self.node_off[1] {
-            if !good[v] {
-                continue;
+        // Items with the same arcs so far and the same node hold the same
+        // analyses (only the states differ), so only the first is kept.
+        let mut queued: BTreeSet<(Arcs, usize)> = BTreeSet::new();
+        let mut all: Vec<Analysis> = Vec::new();
+        while let Some(Reverse((_, path, start, fixed))) = heap.pop() {
+            let a = self.arcs_to_analysis(mt, &path.iter().map(|&e| self.arc(e)).collect::<Vec<_>>());
+            if !all.contains(&a) {
+                all.push(a);
+                if all.len() >= cap.max(1) {
+                    break;
+                }
             }
-            let mut stack: Vec<(usize, usize)> = vec![(v, self.out_off[v])];
-            let mut path: Vec<usize> = Vec::new();
-            while let Some(top) = stack.last_mut() {
-                if budget == 0 || found.len() >= ENUM_LIMIT {
-                    break 'outer;
-                }
-                budget -= 1;
-                let (node, cur) = *top;
-                if node >= last {
-                    found.insert(path.iter().map(|&e| self.arc(e)).collect());
-                    stack.pop();
-                    path.pop();
-                    continue;
-                }
-                if cur == self.out_off[node + 1] {
-                    stack.pop();
-                    path.pop();
-                    continue;
-                }
-                top.1 += 1;
-                let t = self.to_node[cur];
-                if good[t] {
-                    path.push(cur);
-                    stack.push((t, self.out_off[t]));
+            for i in fixed..path.len() {
+                let u = if i == 0 { start } else { self.to_node[path[i - 1]] };
+                for e in (self.out_off[u]..self.out_off[u + 1]).filter(|&e| e != path[i] && good[self.to_node[e]]) {
+                    if budget == 0 {
+                        break;
+                    }
+                    let mut p = path[..i].to_vec();
+                    p.push(e);
+                    if !queued.insert((p.iter().map(|&x| self.arc(x)).collect(), self.to_node[e])) {
+                        continue;
+                    }
+                    budget -= 1;
+                    chain(&mut p, self.to_node[e]);
+                    heap.push(Reverse((rank(&p), p, start, i + 1)));
                 }
             }
         }
-        let mut all: Vec<Vec<(u32, u32, u32)>> = found.into_iter().collect();
-        all.sort_by(|a, b| {
-            a.len().cmp(&b.len()).then_with(|| {
-                let ka = a.iter().map(|&(_, e, id)| (Reverse(e), id));
-                let kb = b.iter().map(|&(_, e, id)| (Reverse(e), id));
-                ka.cmp(kb)
-            })
-        });
-        all.truncate(cap.max(1));
-        let all = all.iter().map(|a| self.arcs_to_analysis(mt, a)).collect();
-        Some((self.arcs_to_analysis(mt, &best_arcs), all))
+        let best = all.first()?.clone();
+        Some((best, all))
     }
 
     /// Canonical arc set.

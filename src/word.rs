@@ -130,16 +130,21 @@ impl Word {
         self.sync_detail();
     }
 
-    /// A guessed word that turned out to be a name: whole, one part.
+    /// A guessed word that turned out to be a name: whole, one part, and
+    /// `detail` drops the guess so `tokens()` and `Display` agree.
     pub(crate) fn into_name(self) -> Self {
-        let part = Part { text: self.text.clone(), lemma: self.text.clone(), tag: "NAME".to_string(), known: false };
-        Word { kind: Kind::Name, parts: vec![part], others: Vec::new(), lemma: None, ..self }
+        Self::whole(&self.text, Kind::Name, "NAME", self.span)
     }
 
     pub(crate) fn literal(text: &str, class: crate::Class, span: Range<usize>) -> Self {
+        Self::whole(text, Kind::Literal, class.tag(), span)
+    }
+
+    /// A word kept whole: one part, and one piece in `detail`.
+    fn whole(text: &str, kind: Kind, tag: &str, span: Range<usize>) -> Self {
         let detail = WordOutput::Fallback(vec![SubToken::Piece { text: text.to_string(), cont: false }]);
-        let part = Part { text: text.to_string(), lemma: text.to_string(), tag: class.tag().to_string(), known: false };
-        Word { text: text.to_string(), kind: Kind::Literal, parts: vec![part], others: Vec::new(), lemma: None, detail, span }
+        let part = Part { text: text.to_string(), lemma: text.to_string(), tag: tag.to_string(), known: false };
+        Word { text: text.to_string(), kind, parts: vec![part], others: Vec::new(), lemma: None, detail, span }
     }
 
     /// The word, normalized for the language (lowercased, composed, ...).

@@ -50,16 +50,16 @@ pub struct Discovered {
 /// Build a spec from whitespace-separated words. Input with no usable
 /// words is an error.
 pub fn from_wordlist(text: &str) -> Result<Discovered> {
-    discover_named(text, "")
+    discover_named(text, "", &NormOptions::default()).map(|(d, _)| d)
 }
 
 /// [`from_wordlist`] with `prefix` on every lexicon name, so the result
-/// can be spliced into another spec.
-pub(crate) fn discover_named(text: &str, prefix: &str) -> Result<Discovered> {
-    let norm = NormOptions::default();
+/// can be spliced into another spec, and with that spec's normalization.
+/// Also returns the parsed spec.
+pub(crate) fn discover_named(text: &str, prefix: &str, norm: &NormOptions) -> Result<(Discovered, crate::spec::Spec)> {
     let words: BTreeSet<String> = text
         .split_whitespace()
-        .map(|w| normalize(w, &norm))
+        .map(|w| normalize(w, norm))
         .filter(|w| !w.is_empty() && w.chars().all(char::is_alphabetic))
         .collect();
     if words.is_empty() {
@@ -124,16 +124,22 @@ pub(crate) fn discover_named(text: &str, prefix: &str) -> Result<Discovered> {
     let tail: BTreeSet<&str> = chains.values().flatten().copied().collect();
     let tags = variants(&used, &carried, &support);
     let spec = render(&words, &classes, &whole, &tail, &tags, prefix);
-    crate::spec::load(&spec).map_err(|e| match e {
-        Error::Spec { line, msg } => Error::Spec { line, msg: format!("discovered spec does not compile: {msg}") },
-        e => e,
-    })?;
-    Ok(Discovered {
+    let parsed = checked(&spec)?;
+    let found = Discovered {
         spec,
         words: words.len(),
         suffixes: suffixes.into_iter().map(String::from).collect(),
         paradigms: classes.len(),
         whole: whole.len(),
+    };
+    Ok((found, parsed))
+}
+
+/// Parse a discovered spec and check that it compiles.
+fn checked(spec: &str) -> Result<crate::spec::Spec> {
+    crate::spec::parse_spec(spec).and_then(|p| crate::spec::compile_grammar(&p).map(|_| p)).map_err(|e| match e {
+        Error::Spec { line, msg } => Error::Spec { line, msg: format!("discovered spec does not compile: {msg}") },
+        e => e,
     })
 }
 

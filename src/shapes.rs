@@ -151,8 +151,13 @@ pub fn derive(g: &Grammar) -> Vec<Shape> {
     }
     let irregular: BTreeSet<(&str, &str)> = g.entries.iter().filter(|e| !open(e) && e.surface != e.lemma).map(|e| (e.lemma.as_str(), pos(&e.tag))).collect();
     let mut seen: BTreeMap<Key, (u32, u32)> = BTreeMap::new();
+    // A repeated entry is one stem, so it supports a shape once.
+    let mut listed = BTreeSet::new();
     for (id, e) in g.entries.iter().enumerate() {
         if !open(e) || g.induce_classes.contains(&e.lexicon) || !e.pin_set.is_empty() || !e.rpin_set.is_empty() {
+            continue;
+        }
+        if !listed.insert((e.surface.as_str(), e.lemma.as_str(), e.lexicon, e.tag.as_str(), e.cont, e.filter, e.guard, e.zeros.as_slice())) {
             continue;
         }
         if irregular.contains(&(e.lemma.as_str(), pos(e.tag.as_str()))) {

@@ -69,6 +69,17 @@ First release.
   78.5% → 80.3%, English 78.0% → 78.3%; Hungarian unchanged. English
   treebank lemma accuracy 96.7% → 96.6% (a few short unknown words now read
   as stem + `s`). English `as` joined the closed class.
+- Contracts tightened (`tests/contracts.rs`):
+  - the loader checks that every subword piece spells its trie path and
+    recomputes the failure links, so a crafted artifact cannot change the
+    text it reconstructs;
+  - alternatives are the true best readings in rank order, and readings
+    that look the same count once;
+  - repeating an entry no longer adds stem-shape support;
+  - a name's `tokens()` and `Display` show the name, not the old guess;
+  - `.words(..)` on a spec finds `LEXICON Root` by parsing, and keeps the
+    spec's normalization;
+  - an artifact keeps its `Mode`.
 - Hunspell dictionaries: `LexerBuilder::hunspell(aff, dic)`, CLI
   `--hunspell dict.aff` and `hunspell::to_unimorph` expand the affix rules
   into rows for the generator (`STEM` is the open class of a stem with no

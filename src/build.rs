@@ -3,6 +3,7 @@
 use crate::error::{Error, Result};
 use crate::fused::{Lexer, Mode};
 use crate::output::WordOutput;
+use crate::spec::Spec;
 
 /// Describes a language to generate. Give it any of these, then
 /// [`build`](Self::build):
@@ -108,26 +109,37 @@ fn spec_error<T>(msg: &str) -> Result<T> {
 
 /// Add paradigms discovered from the `words` the grammar in `spec` rejects.
 fn extend(spec: String, words: &str) -> Result<String> {
-    let first = Lexer::compile(&spec)?;
+    let parsed = crate::spec::parse_spec(&spec)?;
+    let first = Lexer::from_grammar(&crate::spec::compile_grammar(&parsed)?);
     let missed: Vec<String> =
         first.lex_text(words, Mode::Strict).into_iter().filter(|(_, out)| matches!(out, WordOutput::Fallback(_))).map(|(w, _)| w).collect();
-    match crate::discover::discover_named(&missed.join("\n"), "D_") {
-        Ok(found) => splice(&spec, &found.spec),
+    match crate::discover::discover_named(&missed.join("\n"), "D_", &first.mt.norm) {
+        Ok((found, found_spec)) => splice(&spec, &parsed, &found.spec, &found_spec),
         Err(_) => Ok(spec),
     }
 }
 
 /// Put the discovered spec's root continuations into `base`'s `Root`
-/// lexicon and append its other lexicons.
-fn splice(base: &str, found: &str) -> Result<String> {
-    const ROOT: &str = "LEXICON Root";
-    let (Some(at), Some(root)) = (base.find(ROOT), found.find(ROOT)) else {
+/// lexicon and append its other lexicons. Lexicons are found from the
+/// parsed specs, so comments and spacing do not matter.
+fn splice(base: &str, base_spec: &Spec, found: &str, found_spec: &Spec) -> Result<String> {
+    // 0-based line of each lexicon header, in order, and which is `Root`.
+    let heads = |s: &Spec| (s.lexicons.iter().map(|l| l.line - 1).collect::<Vec<_>>(), s.lexicons.iter().position(|l| l.name == "Root"));
+    let ((base_heads, Some(b)), (found_heads, Some(f))) = (heads(base_spec), heads(found_spec)) else {
         return spec_error("the spec has no `LEXICON Root` to add discovered words to");
     };
-    let (Some(eol), Some(from)) = (base.get(at..).and_then(|s| s.find('\n')), found.get(root..)) else {
-        return spec_error("malformed `LEXICON Root`");
+    let found_lines: Vec<&str> = found.lines().collect();
+    let root_end = found_heads.get(f + 1).copied().unwrap_or(found_lines.len());
+    let (Some(links), Some(before), Some(after)) =
+        (found_lines.get(found_heads[f] + 1..root_end), found_lines.get(found_heads[0]..found_heads[f]), found_lines.get(root_end..))
+    else {
+        return spec_error("malformed discovered spec");
     };
-    let Some((links, lexicons)) = from.split_once('\n').and_then(|(_, rest)| rest.split_once("\n\n")) else { return Ok(base.to_string()) };
-    let cut = at + eol + 1;
-    Ok(format!("{}{links}\n{}\n{lexicons}", base.get(..cut).unwrap_or(base), base.get(cut..).unwrap_or("")))
+    let mut out: Vec<&str> = base.lines().collect();
+    let tail = out.split_off((base_heads[b] + 1).min(out.len()));
+    out.extend(links);
+    out.extend(tail);
+    out.push("");
+    out.extend(before.iter().chain(after));
+    Ok(out.join("\n") + "\n")
 }

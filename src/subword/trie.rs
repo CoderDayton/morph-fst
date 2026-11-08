@@ -104,47 +104,8 @@ impl TrieBuilder {
             }
             child_off.push(labels.len() as u32);
         }
-        let goto = |u: u32, c: char| self.children[u as usize].get(&c).copied();
-
-        let mut fail = vec![NONE; n];
-        let mut pops: Vec<Vec<u32>> = vec![Vec::new(); n];
-        let mut queue: VecDeque<u32> = VecDeque::from([ROOT_INIT, ROOT_CONT]);
-        while let Some(u) = queue.pop_front() {
-            for (&c, &v) in &self.children[u as usize] {
-                queue.push_back(v);
-                let vi = v as usize;
-                if self.piece[vi] != NONE {
-                    fail[vi] = ROOT_CONT;
-                    pops[vi] = vec![self.piece[vi]];
-                    continue;
-                }
-                if u == ROOT_INIT || u == ROOT_CONT {
-                    continue; // unreachable under closure; leaves fail = NONE
-                }
-                let mut z = fail[u as usize];
-                let mut acc = pops[u as usize].clone();
-                let target = loop {
-                    if z == NONE {
-                        break None;
-                    }
-                    if let Some(t) = goto(z, c) {
-                        break Some(t);
-                    }
-                    acc.extend_from_slice(&pops[z as usize]);
-                    z = fail[z as usize];
-                };
-                if let Some(t) = target {
-                    fail[vi] = t;
-                    pops[vi] = acc;
-                }
-            }
-        }
-        let mut pops_off = vec![0u32];
-        let mut pop_pool = Vec::new();
-        for p in &pops {
-            pop_pool.extend_from_slice(p);
-            pops_off.push(pop_pool.len() as u32);
-        }
+        debug_assert_eq!(n + 1, child_off.len());
+        let (fail, pops_off, pop_pool) = links(&child_off, &labels, &targets, &self.piece, None);
         let mut payload_off = vec![0u32];
         let mut payload_pool = Vec::new();
         for p in &self.payload {
@@ -167,6 +128,113 @@ impl TrieBuilder {
             pieces: self.pieces,
         }
     }
+}
+
+/// Failure links and pops (BFS in depth order over both roots), from the
+/// CSR edges (labels sorted per node) and the piece marks. Returns
+/// `(fail, pops_off, pop_pool)`. With `limit` (loading), returns empty
+/// arrays as soon as a node gets no link or the pops outgrow `limit`: either
+/// is already a mismatch, and stopping keeps a crafted trie from costing
+/// quadratic time and memory.
+fn links(child_off: &[u32], labels: &[u32], targets: &[u32], piece: &[u32], limit: Option<usize>) -> (Vec<u32>, Vec<u32>, Vec<u32>) {
+    let n = piece.len();
+    let bad = || (Vec::new(), Vec::new(), Vec::new());
+    let mut total = 0usize;
+    let over = |len: usize| limit.is_some_and(|l| len > l);
+    let span = |u: u32| child_off[u as usize] as usize..child_off[u as usize + 1] as usize;
+    let goto = |u: u32, c: u32| {
+        let r = span(u);
+        labels[r.clone()].binary_search(&c).ok().map(|i| targets[r.start + i])
+    };
+    let mut fail = vec![NONE; n];
+    let mut pops: Vec<Vec<u32>> = vec![Vec::new(); n];
+    let mut queue: VecDeque<u32> = VecDeque::from([ROOT_INIT, ROOT_CONT]);
+    while let Some(u) = queue.pop_front() {
+        for i in span(u) {
+            let (c, v) = (labels[i], targets[i]);
+            queue.push_back(v);
+            let vi = v as usize;
+            if piece[vi] != NONE {
+                fail[vi] = ROOT_CONT;
+                pops[vi] = vec![piece[vi]];
+                total += 1;
+                if over(total) {
+                    return bad();
+                }
+                continue;
+            }
+            if u == ROOT_INIT || u == ROOT_CONT {
+                if limit.is_some() {
+                    return bad();
+                }
+                continue; // unreachable under closure; leaves fail = NONE
+            }
+            let mut z = fail[u as usize];
+            let mut acc = pops[u as usize].clone();
+            let target = loop {
+                if z == NONE {
+                    break None;
+                }
+                if let Some(t) = goto(z, c) {
+                    break Some(t);
+                }
+                acc.extend_from_slice(&pops[z as usize]);
+                if over(total + acc.len()) {
+                    return bad();
+                }
+                z = fail[z as usize];
+            };
+            match target {
+                Some(t) => {
+                    total += acc.len();
+                    if over(total) {
+                        return bad();
+                    }
+                    fail[vi] = t;
+                    pops[vi] = acc;
+                }
+                None if limit.is_some() => return bad(),
+                None => {}
+            }
+        }
+    }
+    let mut pops_off = vec![0u32];
+    let mut pop_pool = Vec::new();
+    for p in &pops {
+        pop_pool.extend_from_slice(p);
+        pops_off.push(pop_pool.len() as u32);
+    }
+    (fail, pops_off, pop_pool)
+}
+
+/// Each piece sits at exactly one node: the one its text spells. Runs on
+/// edges already checked to form a tree with sorted labels.
+fn check_pieces(child_off: &[u32], labels: &[u32], targets: &[u32], piece: &[u32], pieces: &[PieceDef]) -> Result<()> {
+    let mut placed = vec![false; pieces.len()];
+    for (v, &p) in piece.iter().enumerate() {
+        if p == NONE {
+            continue;
+        }
+        let (Some(def), Some(seen)) = (pieces.get(p as usize), placed.get_mut(p as usize)) else { return art_err("piece id out of range") };
+        if std::mem::replace(seen, true) {
+            return art_err("piece placed at two nodes");
+        }
+        let mut u = if def.cont { ROOT_CONT } else { ROOT_INIT };
+        for c in def.text.chars() {
+            let r = child_off[u as usize] as usize..child_off[u as usize + 1] as usize;
+            match labels[r.clone()].binary_search(&(c as u32)) {
+                Ok(i) => u = targets[r.start + i],
+                Err(_) => return art_err("piece text does not spell its trie path"),
+            }
+        }
+        if u as usize != v {
+            return art_err("piece text does not spell its trie path");
+        }
+    }
+    if placed.contains(&false) {
+        return art_err("piece not placed in the trie");
+    }
+    Ok(())
 }
 
 /// Immutable, flat (CSR) trie: what gets serialized.
@@ -268,6 +336,8 @@ impl WpTrie {
     /// Deserialize and fully validate. `n_entries` bounds payload ids.
     /// A validated trie cannot make LinMaxMatch panic or loop: edges form a
     /// tree over two roots, and every failure link strictly decreases depth.
+    /// It also cannot change text: each piece spells the path to its node,
+    /// and the failure links and pops are the ones the edges imply.
     pub fn read(r: &mut Reader, n_entries: usize) -> Result<Self> {
         let child_off = r.u32s()?;
         let labels = r.u32s()?;
@@ -317,14 +387,10 @@ impl WpTrie {
                 parent[v] = u as u32;
             }
         }
-        let mut depth = vec![u32::MAX; n];
-        depth[0] = 0;
-        depth[1] = 0;
         let mut q = VecDeque::from([0u32, 1u32]);
         let mut seen = 2;
         while let Some(u) = q.pop_front() {
             for &v in &targets[child_off[u as usize] as usize..child_off[u as usize + 1] as usize] {
-                depth[v as usize] = depth[u as usize] + 1;
                 seen += 1;
                 q.push_back(v);
             }
@@ -332,27 +398,15 @@ impl WpTrie {
         if seen != n {
             return art_err("unreachable trie nodes");
         }
-        for v in 0..n {
-            let is_root = v < 2;
-            if is_root {
-                if fail[v] != NONE || piece[v] != NONE {
-                    return art_err("roots must have no failure link and no piece");
-                }
-                continue;
-            }
-            if piece[v] != NONE && piece[v] as usize >= pieces.len() {
-                return art_err("piece id out of range");
-            }
-            let f = fail[v];
-            if f == NONE || f as usize >= n || depth[f as usize] >= depth[v] {
-                return art_err("failure link missing or not depth-decreasing");
-            }
-        }
-        if pop_pool.iter().any(|&p| p as usize >= pieces.len()) {
-            return art_err("failure pop out of range");
-        }
+        // Pieces and failure links are checked against the ones the edges
+        // imply, which covers roots, ranges and depth-decreasing links.
         if payload_pool.iter().any(|&e| e as usize >= n_entries) {
             return art_err("payload entry out of range");
+        }
+        check_pieces(&child_off, &labels, &targets, &piece, &pieces)?;
+        let (f, po, pp) = links(&child_off, &labels, &targets, &piece, Some(pop_pool.len()));
+        if f != fail || po != pops_off || pp != pop_pool {
+            return art_err("failure links do not match the trie");
         }
         Ok(WpTrie { child_off, labels, targets, piece, fail, pops_off, pop_pool, payload_off, payload_pool, pieces })
     }
