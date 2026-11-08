@@ -4,5 +4,7 @@
 pub mod normalize;
 pub mod output;
 pub mod pretok;
+pub(crate) mod search;
+pub(crate) mod split;
 pub(crate) mod tokenize;
 pub(crate) mod word;

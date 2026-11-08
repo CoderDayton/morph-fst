@@ -29,7 +29,9 @@ let lx = Lexer::load("turkish.mcfu")?;
 | One word | `lx.analyze(word)` |
 | Running text | `lx.analyze_text(text)`: [tokenized](#tokenizer), each word normalized (Turkish `I→ı`, tone stripping, Hangul → jamo, …), and spread over all cores when long (each distinct word is lexed once). `word.span()` points into your text |
 | Just the tokens | `morph_fst::tokenize(text)`: spans and classes, no lexicon needed |
-| Search keys | `lx.terms(text)`: one lowercase lemma per word, for documents and queries alike, see [Search](#search) |
+| Tokens of one kind | `lx.split(text, how)`: `Split::Words` (as written), `Split::Morphemes` (`un happi est`), `Split::Lemmas` (search keys) or `Split::Pieces` (WordPiece-style pieces for a model: known morphemes whole, `un ##happi ##est`; unknown stems fall back to the grammar's pieces, then bytes) |
+| Search keys | `lx.terms(text)`, the same as `Split::Lemmas`: one lowercase lemma per word, for documents and queries alike, see [Search](#search) |
+| Rank documents for a query | `lx.index(docs)`, then `index.search(query)` → `(doc id, score)` best first, `index.score(query, id)`, `index.add(doc)`: BM25 over lemmas, see [Search](#search) |
 | Skip the guessing | `Lexer::bundled("english")?.mode(Mode::Strict)` |
 | Everything about a word | `word.detail()`: byte spans, every reading, subword pieces |
 | Save and reload | `lx.save(path)`, `Lexer::load(path)` (the saved file keeps the mode) |
@@ -47,6 +49,13 @@ cargo run --example learn_exceptions
 ## Search
 
 Use `lx.terms(text)` on both the documents and the queries, and `run`, `runs`, `ran` and `running` meet at one key (`cargo run --example search`). Numbers, emails, URLs and abbreviations stay whole; punctuation, symbols and clitics are dropped; unknown words and names still get a key. Derived words keep their own key (`runner` ≠ `run`), because the lemma keeps derivation. How it compares with a stemmer is in [Results](results.md#search-keys).
+
+`lx.index(docs)` does the ranking too. It scores each document for a query with BM25 over those keys, at the published defaults (k1 = 1.2, b = 0.75): a rare shared word counts more than a common one, a repeat counts less each time, and a long document does not win by length alone.
+
+```rust
+let index = lx.index(["The cat ran home.", "Dogs are running in the park."]);
+index.search("dog runs");      // [(1, 1.25), (0, 0.49)]: both share `run`, only 1 shares `dog`
+```
 
 ## Tokenizer
 

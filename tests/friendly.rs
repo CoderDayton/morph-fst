@@ -1,6 +1,6 @@
 //! The everyday API: `analyze`, `Word`, and the language builder.
 
-use morph_fst::{Kind, Lexer, Mode};
+use morph_fst::{Kind, Lexer, Mode, Split};
 
 type TestResult = Result<(), Box<dyn std::error::Error>>;
 
@@ -66,6 +66,52 @@ fn a_language_comes_from_tables_plus_extra_words() -> TestResult {
     assert_eq!(both.analyze("kicked").kind(), Kind::Known);
     // an unseen stem still borrows the discovered endings
     assert_eq!(both.analyze("pushed").kind(), Kind::Guessed);
+    Ok(())
+}
+
+#[test]
+fn text_splits_four_ways() -> TestResult {
+    let lx = Lexer::bundled("english")?;
+    let text = "The unhappiest cats walked to blorfville, 3.5 km away.";
+    let words = lx.split(text, Split::Words);
+    assert_eq!(words, ["The", "unhappiest", "cats", "walked", "to", "blorfville", ",", "3.5", "km", "away", "."]);
+    assert_eq!(lx.split(text, Split::Morphemes)[..8], ["the", "un", "happi", "est", "cat", "s", "walk", "ed"]);
+    assert_eq!(lx.split(text, Split::Lemmas), lx.terms(text));
+    assert_eq!(lx.split(text, Split::Lemmas)[..4], ["the", "unhappy", "cat", "walk"]);
+    // pieces cover every word: a word's pieces join back to its normalized text
+    let pieces = lx.split(text, Split::Pieces);
+    let mut joined: Vec<String> = Vec::new();
+    for p in &pieces {
+        match p.strip_prefix("##") {
+            Some(rest) => joined.last_mut().ok_or("## piece first")?.push_str(rest),
+            None => joined.push(p.clone()),
+        }
+    }
+    let lowered: Vec<String> = words.iter().map(|w| w.to_lowercase()).collect();
+    assert_eq!(joined, lowered);
+    // Korean pieces are whole syllables and morphemes, recomposed
+    let ko = Lexer::bundled("korean")?;
+    assert_eq!(ko.split("학교에서 먹었다.", Split::Pieces), ["학교", "##에서", "먹", "##었", "##다", "."]);
+    Ok(())
+}
+
+#[test]
+fn an_index_finds_documents_by_lemma() -> TestResult {
+    let lx = Lexer::bundled("english")?;
+    let mut index = lx.index(["The cat ran home.", "Dogs are running in the park.", "A quiet morning."]);
+    assert_eq!(index.len(), 3);
+    // `runs` and `dog` meet `running` and `Dogs`; the cat document only shares `run`
+    let hits = index.search("dog runs");
+    assert_eq!(hits.iter().map(|h| h.0).collect::<Vec<_>>(), [1, 0]);
+    assert!(hits[0].1 > hits[1].1);
+    assert_eq!(index.score("dog runs", 2), 0.0);
+    assert_eq!(index.score("dog runs", 99), 0.0);
+    assert!(index.search("zebra").is_empty());
+    let id = index.add("The dog sleeps.");
+    assert_eq!(id, 3);
+    // `the` is in three documents, `dog` in two
+    assert!(index.score("dog", 3) > index.score("the", 3));
+    assert!(lx.index([]).search("dog").is_empty());
     Ok(())
 }
 

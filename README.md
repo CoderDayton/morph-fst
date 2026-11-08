@@ -60,7 +60,8 @@ for word in lx.analyze_text("They visited Blorfing yesterday") {
 | A new language from data | `Lexer::builder().unimorph(&tables).build()` |
 | One word | `lx.analyze(word)` |
 | Running text | `lx.analyze_text(text)` |
-| Search keys (`run`, `ran`, `running` → `run`) | `lx.terms(text)` |
+| Tokens: words, morphemes, lemmas or model pieces | `lx.split(text, Split::Pieces)` → `un ##happi ##est` |
+| Search: rank documents by shared lemmas (BM25) | `lx.index(docs).search(query)` |
 | Save and reload | `lx.save(path)`, `Lexer::load(path)` |
 
 From the command line (`cargo install morph-fst --features cli`):

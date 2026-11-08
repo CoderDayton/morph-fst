@@ -55,6 +55,13 @@
 //!
 //! [`Word::detail`] gives the full [`WordOutput`] (byte spans, every reading).
 //!
+//! ## Tokens and search
+//!
+//! * [`Lexer::split`]: text as words, morphemes, lemmas or WordPiece-style
+//!   pieces for a model (`un ##happi ##est`). See [`Split`].
+//! * [`Lexer::index`]: rank documents for a query by the lemmas they
+//!   share (BM25), so `dog runs` finds `Dogs are running`. See [`Index`].
+//!
 //! ## Cargo features
 //!
 //! * `cli`: the `morph-fst` command-line tool.
@@ -74,7 +81,7 @@ mod text;
 pub use makers::{discover, generate, hunspell};
 
 use makers::build;
-use text::{tokenize, word};
+use text::{search, split, tokenize, word};
 
 // Internals: public for the CLI, tests and examples, not part of the API.
 #[doc(hidden)]
@@ -95,6 +102,8 @@ pub use error::{Error, Result};
 pub use fused::{Lexer, Mode};
 pub use induce::{Decision, Induction};
 pub use output::{Analysis, Morph, Segment, SubToken, WordOutput};
+pub use search::Index;
+pub use split::Split;
 pub use tokenize::{tokenize, Class, Token};
 pub use word::{Kind, Part, Word};
 
