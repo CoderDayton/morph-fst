@@ -7,7 +7,7 @@ description = "Rule-based morphological analyzer (finite-state, lexc/twolc-like 
 license = "MIT OR Apache-2.0"
 readme = "README.md"
 documentation = "https://docs.rs/morph-fst"
-# repository = "https://github.com/<you>/morph-fst"   # add before publishing
+# repository = "https://github.com/CoderDatyon/morph-fst"   # add before publishing
 keywords = ["morphology", "tokenizer", "fst", "nlp", "wordpiece"]
 categories = ["text-processing", "parsing", "science"]
 include = [
@@ -96,8 +96,13 @@ name = "rules_prop"
 all-features = true
 
 [profile.release]
-codegen-units = 1
-lto = "thin"
+opt-level = 3
+lto = "fat"
+codegen-units = 16
+
+[profile.dev]
+opt-level = 0
+lto = false
 
 [profile.test]
 opt-level = 2
