@@ -10,7 +10,7 @@ blorties      →  blorty + s                 never seen; the stem change comes 
 
 You describe a language once, in a plain-text `.morph` grammar: its stems, the endings each kind of stem takes, and the spelling rules between them. The library compiles that into one fast lexer. The lexer analyzes the words the grammar knows, guesses the ones it doesn't from similar known words, and splits anything else into subword pieces. Results are ranked by fixed rules, never by trained weights: the grammar is the model.
 
-It ships with a full English grammar (38k stems), demo grammars for Turkish, Spanish, French, Korean and Igbo, and tools that write a first grammar for other languages from free data.
+It ships with full grammars for English, Turkish, Spanish, French and Korean, built from permissively licensed lexicons ([accuracy on real text](docs/results.md#real-text-in-the-other-bundled-languages)), a small Igbo grammar, and tools that write a first grammar for other languages from free data.
 
 ```mermaid
 flowchart LR
