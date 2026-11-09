@@ -61,10 +61,6 @@
 //!   pieces for a model (`un ##happi ##est`). See [`Split`].
 //! * [`Lexer::index`]: rank documents for a query by the lemmas they
 //!   share (BM25), so `dog runs` finds `Dogs are running`. See [`Index`].
-//!
-//! ## Cargo features
-//!
-//! * `cli`: the `morph-fst` command-line tool.
 
 #![cfg_attr(docsrs, feature(doc_cfg))]
 #![forbid(unsafe_code)]

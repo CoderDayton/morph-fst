@@ -130,7 +130,7 @@ Suffixes carry only their spelling (`SFX:ed`), no features. Treat it as a first 
 ## Command line
 
 ```sh
-cargo install morph-fst --features cli
+cargo install --git https://github.com/CoderDayton/morph-fst
 
 morph-fst tokenize --spec turkish "Kitaplarımızdan geliyorum, saatler evlerda"
 morph-fst tokenize --spec english --mode hybrid "unhappyness blorfing"
@@ -159,13 +159,6 @@ l'homme          FST  le<DET>+homme<N>                         [l'|homme]
 갔어요            FST  가<V>+EOᆻ<PST>+어요<POL>                  [가|ᆻ|어요]
 ịkpụ             HYB  I<INF> + ⟨kpụ⟩<?V>{k ##pụ}                (unknown root still selects ị-)
 ```
-
-## Cargo features
-
-| Feature | What it adds |
-|---|---|
-| *(default)* | `Lexer`, the spec compiler, exception learning, bundled languages. |
-| `cli` | The `morph-fst` binary. |
 
 ## Bundled languages
 

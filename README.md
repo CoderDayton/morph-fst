@@ -30,12 +30,29 @@ flowchart LR
 
 ## Install
 
-```toml
-[dependencies]
-morph-fst = "0.1"
+morph-fst is not on crates.io yet; install it from GitHub. Rust 1.82 or newer.
+
+As a library, in your project:
+
+```sh
+cargo add morph-fst --git https://github.com/CoderDayton/morph-fst
 ```
 
-The minimum supported Rust version is 1.82.
+or by hand in `Cargo.toml` (add `rev = "<commit>"` to pin a version):
+
+```toml
+[dependencies]
+morph-fst = { git = "https://github.com/CoderDayton/morph-fst" }
+```
+
+The command-line tool:
+
+```sh
+cargo install --git https://github.com/CoderDayton/morph-fst
+morph-fst --help
+```
+
+The six bundled languages are compiled into the library, so they need no data download.
 
 ## Use
 
@@ -64,7 +81,7 @@ for word in lx.analyze_text("They visited Blorfing yesterday") {
 | Search: rank documents by shared lemmas (BM25) | `lx.index(docs).search(query)` |
 | Save and reload | `lx.save(path)`, `Lexer::load(path)` |
 
-From the command line (`cargo install morph-fst --features cli`):
+From the command line (see [Install](#install)):
 
 ```sh
 morph-fst tokenize --spec english "unhappiness blorfing"

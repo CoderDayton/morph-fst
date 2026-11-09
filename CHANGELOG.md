@@ -151,5 +151,5 @@ First release.
 - `Lexer::split` (words, morphemes, lemmas, WordPiece-style pieces) and
   `Lexer::index` (BM25 search over lemmas).
 - Validated binary artifacts (`to_bytes` / `from_bytes`, format version 4).
-- Feature `cli`: the `morph-fst` command-line tool.
+- The `morph-fst` command-line tool, built by `cargo install`.
 - Minimum supported Rust version: 1.82.
